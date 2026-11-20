@@ -16,6 +16,9 @@ import {
   createBombs, updateBombs, launchEvent, pickTarget, pickRandom, pickForest, bombsForEvent, dropBomb,
 } from '../src/sim/bombs.js';
 import { encodeState, saveGame, readSave, clearSave, SAVE_KEY } from '../src/save.js';
+import {
+  PHASE, createGame, checkEnd, endGame, computeScore, gradeFor, updateRecords, loadRecords,
+} from '../src/game.js';
 import { BOMB } from '../src/config.js';
 
 let failures = 0;
@@ -656,6 +659,107 @@ check('save cabe folgado no localStorage (~5MB)', () => {
   const kb = (buf.byteLength * 4) / 3 / 1024;
   assert(buf.byteLength < 200 * 1024, `buffer cru ${(buf.byteLength / 1024).toFixed(0)} KB`);
   assert(kb < 400, `base64 ${kb.toFixed(0)} KB`);
+});
+
+
+console.log('fim de jogo e pontuação');
+check('faixas de nota', () => {
+  assert(gradeFor(2000) === 'S', `2000 -> ${gradeFor(2000)}`);
+  assert(gradeFor(1650) === 'S', `1650 -> ${gradeFor(1650)}`);
+  assert(gradeFor(1649) === 'A', `1649 -> ${gradeFor(1649)}`);
+  assert(gradeFor(1350) === 'A', `1350 -> ${gradeFor(1350)}`);
+  assert(gradeFor(1050) === 'B', `1050 -> ${gradeFor(1050)}`);
+  assert(gradeFor(750) === 'C', `750 -> ${gradeFor(750)}`);
+  assert(gradeFor(749) === 'D', `749 -> ${gradeFor(749)}`);
+  assert(gradeFor(2000, PHASE.DROUGHT) === 'F', 'derrota tem que ser F');
+});
+check('pontuação soma os três termos (máx 2000)', () => {
+  const g = fireGrid(20, 20);
+  fillTrees(g, 1, 1, 18, 18);
+  g.waterTotal = 1000;
+  const game = createGame(1000);
+  const r = computeScore(game, g, 0);
+  assert(r.score === r.parts.cobertura + r.parts.agua + r.parts.rapidez, 'soma dos termos');
+  assert(r.score <= 2000, `score ${r.score} passou do teto`);
+  // sem tempo decorrido e sem gastar água, a diferença é só a cobertura
+  assert(r.parts.agua === 500, `água ${r.parts.agua}`);
+  assert(r.parts.rapidez === 500, `rapidez ${r.parts.rapidez}`);
+});
+check('vitória dispara em 90% de cobertura', () => {
+  const g = fireGrid(30, 30);
+  const game = createGame(1000);
+  for (let y = 0; y < 30; y++) for (let x = 0; x < 30; x++) g.tree[g.idx(x, y)] = 1;
+  g.treeCount = 0;
+  g.recount(); // 100% de cobertura
+  const r = checkEnd(game, g, 120);
+  assert(r && r.phase === PHASE.VICTORY, 'não venceu com floresta cheia');
+  assert(game.phase === PHASE.VICTORY, 'fase não mudou');
+  assert(r.grade === 'S' || r.grade === 'A', `nota ${r.grade}`);
+  // segunda chamada não deve reabrir a partida
+  assert(checkEnd(game, g, 130) === null, 'fim rodou duas vezes');
+});
+check('não vence com 89% de cobertura', () => {
+  const g = fireGrid(30, 30);
+  const game = createGame(1000);
+  fillTrees(g, 1, 1, 28, 28);
+  // derruba árvores até ficar abaixo da meta
+  let removidas = 0;
+  while (g.coverage() >= 0.9) {
+    const i = g.tree.findIndex((v) => v === 1);
+    g.tree[i] = 0;
+    g.treeCount--;
+    removidas++;
+    if (removidas > 500) break;
+  }
+  g.recount();
+  assert(g.coverage() < 0.9, 'setup falhou');
+  assert(checkEnd(game, g, 120) === null, 'venceu abaixo da meta');
+});
+check('seca só derrota com fogo ativo', () => {
+  const g = fireGrid(24, 24);
+  fillTrees(g, 1, 1, 22, 22);
+  const game = createGame(1000);
+  g.waterTotal = 0;
+  assert(checkEnd(game, g, 10) === null, 'secou sem fogo e derrotou (não devia)');
+  igniteRadius(g, 12, 12, 1, 7);
+  const r = checkEnd(game, g, 10);
+  assert(r && r.phase === PHASE.DROUGHT, 'devia derrotar com fogo e sem água');
+  assert(r.grade === 'F', `nota ${r.grade}`);
+});
+check('endGame forçado (teclas de debug) funciona', () => {
+  const g = fireGrid(20, 20);
+  fillTrees(g, 1, 1, 18, 18);
+  const game = createGame(500);
+  const v = endGame(game, g, 30, PHASE.VICTORY);
+  assert(v.phase === PHASE.VICTORY, 'debug win não venceu');
+  const game2 = createGame(500);
+  const d = endGame(game2, g, 30, PHASE.DROUGHT);
+  assert(d.phase === PHASE.DROUGHT && d.grade === 'F', 'debug lose não derrotou');
+});
+check('recordes: vitória grava, derrota não', () => {
+  const m = new Map();
+  const store = {
+    getItem: (k) => (m.has(k) ? m.get(k) : null),
+    setItem: (k, v) => m.set(k, String(v)),
+    removeItem: (k) => m.delete(k),
+  };
+  const g = fireGrid(20, 20);
+  fillTrees(g, 1, 1, 18, 18);
+  const game = createGame(500);
+  const v = endGame(game, g, 100, PHASE.VICTORY);
+  const r1 = updateRecords(v, store);
+  assert(r1.novos.score && r1.novos.fastest, 'primeira vitória devia ser recorde');
+  assert(r1.records.bestScore === v.score, 'score não gravado');
+
+  const pior = { ...v, score: 10, phase: PHASE.VICTORY };
+  const r2 = updateRecords(pior, store);
+  assert(!r2.novos.score, 'score pior não devia virar recorde');
+  assert(loadRecords(store).bestScore === v.score, 'recorde foi sobrescrito');
+
+  const game2 = createGame(500);
+  const d = endGame(game2, g, 5, PHASE.DROUGHT);
+  const r3 = updateRecords(d, store);
+  assert(!r3.novos.score && !r3.novos.fastest, 'derrota não pode gravar recorde');
 });
 
 console.log(failures ? `\n${failures} falha(s)` : '\ntudo ok');

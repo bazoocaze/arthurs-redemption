@@ -48,7 +48,12 @@ ele reporta exceções/console, avalia JS e salva screenshot. Sempre rodar
 **Teclas**: `1`/`2`/`3` ferramenta · `[`/`]` raio do pincel · `F` enquadra ·
 setas/WASD movem · `` ` `` alterna perf/painel · `I` acende fogo e `B` solta uma
 bomba no cursor (só com `?debug=1`). `M` liga/desliga o som (persistido em
-localStorage). Próximo marco: M9 (recursos e objetivo).
+localStorage). Próximo marco: M8 (polimento) — o jogo já tem fim e nota.
+
+**Debug de fim de jogo:** com `?debug=1`, **`V`** força vitória e **`L`** força
+derrota (seca). Sem debug, a vitória sai em 90% de cobertura e a derrota quando a
+água zera com fogo ativo. `hooks.gameInfo()` devolve fase/nota/pontos;
+`?fresh=1` limpa o save para testar a tela do zero.
 
 **Save/PWA:** `?fresh=1` ignora o save, `?nosw=1` não registra o service worker.
 Ao mudar arquivos do jogo, **bumpe `VERSION` em `sw.js`**. Ícones: `node

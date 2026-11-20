@@ -18,6 +18,9 @@ import {
 import { createUi } from './ui.js';
 import { createAudio } from './audio.js';
 import { readSave, saveGame, clearSave } from './save.js';
+import {
+  PHASE, createGame, checkEnd, endGame, computeScore, updateRecords, loadRecords, endMessage,
+} from './game.js';
 import { hash2 } from './rng.js';
 
 const params = new URLSearchParams(location.search);
@@ -43,6 +46,7 @@ const { grid } = generateWorld(SEED);
 const fx = createFx();
 const audio = createAudio();
 const bombs = createBombs(SEED);
+const game = createGame(grid.waterTotal);
 const bombFx = createBombFx();
 const camera = new Camera();
 const state = {
@@ -85,6 +89,7 @@ function drainEvents() {
   for (let k = 0; k < ev.length; k++) {
     const e = ev[k];
     audio.play(e.type, panFor(e.x, e.y));
+    if (e.type === 'ash') game.burned++; // cada cinza é uma árvore perdida
     if (e.type === 'spray') spawnSteam(fx, e.x, e.y, 1);
     else if (e.type === 'extinguish') spawnSteam(fx, e.x, e.y, 5);
     else if (e.type === 'explosion') {
@@ -98,7 +103,20 @@ function drainEvents() {
   ev.length = 0;
 }
 
+/** Fecha a partida: mostra a tela final, grava recordes e não salva mais. */
+function finish(result) {
+  game.result = result;
+  const { records, novos } = updateRecords(result);
+  result.message = endMessage(result);
+  ui.showEnd(result, records, novos);
+  saveDescartado = true; // a partida acabou: recarregar começa outra
+  clearSave();
+  dirty = true;
+  return result;
+}
+
 function paintPath(path) {
+  if (game.phase !== PHASE.PLAYING) return 0;
   let changed = 0;
   for (const t of path) changed += applyBrush(grid, t.x, t.y, state.brushRadius, state.tool, SEED);
   drainEvents();
@@ -151,6 +169,26 @@ const hooks = {
     const mudo = audio.toggleMute();
     ui.setMuted(mudo);
     return mudo;
+  },
+  /** Debug: força vitória (tecla V com ?debug=1). */
+  win() {
+    const r = endGame(game, grid, bombs.elapsed, PHASE.VICTORY);
+    return r && game.result === r ? finish(r) : game.result;
+  },
+  /** Debug: força derrota por seca (tecla L com ?debug=1). */
+  lose() {
+    const r = endGame(game, grid, bombs.elapsed, PHASE.DROUGHT);
+    return r && game.result === r ? finish(r) : game.result;
+  },
+  /** Estado da partida (usado pelos probes). */
+  gameInfo() {
+    const score = computeScore(game, grid, bombs.elapsed);
+    return {
+      phase: game.phase, score: score.score, grade: score.grade, parts: score.parts,
+      coverage: +grid.coverage().toFixed(4), water: Math.round(grid.waterTotal),
+      waterInitial: Math.round(game.waterInitial), burned: game.burned,
+      elapsed: +bombs.elapsed.toFixed(1),
+    };
   },
   /** Recomeçar do zero: apaga o save e recarrega (confirmação em ui.js). */
   restart() {
@@ -271,6 +309,7 @@ function updateDebug(dt) {
     `bombas ${bombs.inFlight.length} em voo · eventos ${bombs.events} · próximo em ${Math.max(0, bombs.nextEventAt - bombs.elapsed).toFixed(0)}s`,
     `no próximo evento: ${bombsForEvent(bombs.elapsed)} bomba(s)`,
     `som ${audio.muted ? '🔇' : '🔊'} · vozes ${audio.vozes}`,
+    `jogo ${game.phase} · nota ${computeScore(game, grid, bombs.elapsed).grade} · perdidas ${game.burned}`,
     `seed ${SEED}`,
     `frames ${stats.frames} · pulados ${stats.framesSkipped} (redraw ${allPct}% no total)`,
   ].join('\n');
@@ -412,8 +451,14 @@ function frame(ts) {
   time += dt;
 
   input.update(dt);
-  updateFire(dt);
-  drainEvents();
+  if (game.phase === PHASE.PLAYING) {
+    updateFire(dt);
+    drainEvents();
+    const fim = checkEnd(game, grid, bombs.elapsed);
+    if (fim) finish(fim);
+  } else {
+    drainEvents(); // deixa as partículas terminarem
+  }
 
   // Ordem: entrada renderiza na hora; animação obedece ao teto de `TIME.animHz`.
   let redrawn = dirty || inputFrame();
@@ -458,6 +503,14 @@ window.addEventListener('keydown', (e) => {
     ui.setMuted(mudo);
     return;
   }
+  if (dbgMode === 2 && (e.key === 'v' || e.key === 'V')) {
+    hooks.win();
+    return;
+  }
+  if (dbgMode === 2 && (e.key === 'l' || e.key === 'L')) {
+    hooks.lose();
+    return;
+  }
   if ((e.key === 'b' || e.key === 'B') && dbgMode === 2 && state.hover) {
     hooks.bomb(state.hover.x, state.hover.y);
     return;
@@ -483,5 +536,5 @@ requestAnimationFrame(frame);
 // Hook de inspeção manual no console (usado pelos probes headless).
 window.__game = {
   grid, camera, state, stats, hooks, fx, bombs, bombFx, audio,
-  seed: SEED, retomado, salvar, clearSave,
+  seed: SEED, retomado, salvar, clearSave, game, records: loadRecords(), PHASE,
 };

@@ -126,6 +126,19 @@ export const BOMB = {
   dustPuffs: 7, // nuvens de poeira por impacto
 };
 
+// Fim de jogo e pontuação. Os pesos somam 2000 (vitória perfeita).
+export const GAME = {
+  goalCoverage: 0.9, // 90% da terra virou floresta = vitória
+  parSeconds: 480, // 8 min: abaixo disso o bônus de rapidez é positivo
+  scoreCoverage: 1000,
+  scoreWater: 500,
+  scoreSpeed: 500,
+  gradeS: 1650,
+  gradeA: 1350,
+  gradeB: 1050,
+  gradeC: 750,
+};
+
 export const RENDER = {
   lodZoom: 0.45, // abaixo disso, árvores viram manchas por espécie (batch)
   groveMax: 3, // maior bloco agrupado (3x3)

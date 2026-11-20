@@ -174,28 +174,46 @@ reconstruível) e a ameaça vem do tamanho do que a bomba acende.
   do carregamento anterior após cada edição. Em produção é stale-while-revalidate
   (abre na hora e atualiza por trás).
 
-## M9 — Recursos e objetivo (decidido)
+## M9 — Recursos e objetivo ✅
 
-- [x] Recarga de rio: **nenhuma** (arco finito de ~10–12 min, termina em seca)
-- [x] Pintar água custa volume: `2 * (1 + distância até água natural)` por tile
-- [x] Denominador da cobertura congelado na geração (`initialLandTiles`)
-- [x] Seca + fogo ativo = tela final satírica; 90% = vitória e recomeça
-- [ ] `waterVol` por tile de água + drenagem ao apagar fogo (consumo por aplicação)
-- [ ] Spray consome do tile de água mais próximo dentro do raio; sem água no raio = spray seco
-- [ ] Custo de pintura de água com multiplicador por distância até água natural (fecha o exploit do moat)
-- [ ] Cobertura: contador árvores / `initialLandTiles` (meta 90%)
-- [ ] Transições de estado: `playing` → `victory` | `drought` (seca com fogo ativo)
-- [ ] Tela final satírica com mensagem para o Arthur
-- [ ] Balancear reservatório total para arco de ~10–12 min
+- [x] Recarga de rio: **nenhuma** (arco finito, termina em seca)
+- [x] Pintar água custa volume (custo sub-linear por distância até água natural)
+- [x] Denominador da cobertura congelado na geração (`landTotal`)
+- [x] `waterVol` por tile + spray debita do rio mais próximo (custo por distância)
+- [x] Cobertura = árvores / `landTotal` (meta 90%)
+- [x] Transições: `playing` → `victory` (90%) | `drought` (água zerada **e** fogo ativo)
+- [x] Tela final satírica com mensagem para o Arthur
+- [x] Sim e pintura congelam ao fim da partida
 
-## M10 — Pontuação
+### Decisões
 
-- [ ] `score = 1000*cobertura + 500*(agua_restante/agua_total) + 500*rapidez`
-- [ ] PAR de tempo (~8 min) como tunável
-- [ ] Conceito S/A/B/C/D por faixas, exibido como letra grande
-- [ ] Tela final com stats por ícone: árvores vivas, tempo, água restante, árvores perdidas, área queimada
-- [ ] Recordes em localStorage (melhor score, melhor cobertura, vitória mais rápida)
-- [ ] Contador de cobertura e medidor de água no HUD, sem texto
+- **Vitória é checada a cada frame**, não por timer: o jogo termina no tile que
+  fecha os 90%, com feedback imediato.
+- **Derrota só com fogo ativo.** Água zerada com floresta intacta é só "não tem
+  mais como apagar" — o jogo continua. Sem isso, gastar água pintando lagos
+  encerraria a partida sem drama.
+- **Partida encerrada não é salva.** `saveDescartado` + `clearSave()`: recarregar
+  começa outra. Os recordes ficam (chave separada).
+
+## M10 — Pontuação ✅
+
+- [x] `score = 1000·cobertura + 500·(água restante/inicial) + 500·rapidez`
+- [x] PAR de 8 min (`GAME.parSeconds`) para o bônus de rapidez
+- [x] Nota S/A/B/C/D por faixas; derrota é sempre **F**
+- [x] Tela final com stats por ícone (árvores e %, água, árvores perdidas, tempo)
+- [x] Recordes em localStorage (`ar.records`): pontos, cobertura, vitória mais rápida
+- [x] Contador de cobertura e medidor de água no HUD (sem texto)
+
+### Faixas
+
+| nota | pontos | leitura |
+| --- | --- | --- |
+| S | ≥ 1650 | vitória cheia, água quase intacta, rápida |
+| A | ≥ 1350 | vitória confortável |
+| B | ≥ 1050 | venceu com folga pequena |
+| C | ≥ 750 | venceu no limite (90%, seca, no PAR) |
+| D | < 750 | venceu arrastando |
+| F | — | secou com fogo ativo |
 
 ## M8 — Polimento
 

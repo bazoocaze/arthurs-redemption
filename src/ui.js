@@ -11,6 +11,14 @@ export function createUi(state, hooks) {
   const brushBtn = document.getElementById('brush-btn');
   const muteBtn = document.getElementById('mute-btn');
   const resetBtn = document.getElementById('reset-btn');
+  const endEl = document.getElementById('end');
+  const endGrade = document.getElementById('end-grade');
+  const endTitle = document.getElementById('end-title');
+  const endScore = document.getElementById('end-score');
+  const endStats = document.getElementById('end-stats');
+  const endMsg = document.getElementById('end-msg');
+  const endRecords = document.getElementById('end-records');
+  const endRestart = document.getElementById('end-restart');
   const hud = document.getElementById('hud');
   const firePill = document.getElementById('fire-pill');
   const fireCount = document.getElementById('fire-count');
@@ -46,6 +54,8 @@ export function createUi(state, hooks) {
     clearTimeout(resetTimer);
     resetTimer = setTimeout(desarmar, 3000);
   });
+
+  endRestart.addEventListener('click', () => hooks.restart());
 
   brushBtn.addEventListener('click', () => {
     const next = state.brushRadius >= BRUSH.maxRadius ? BRUSH.minRadius : state.brushRadius + 1;
@@ -91,6 +101,42 @@ export function createUi(state, hooks) {
   return {
     refreshTool,
     updateHud,
+    /** Tela final: nota grande, stats por ícone, recordes que caíram. */
+    showEnd(result, records, novos) {
+      endGrade.textContent = result.grade;
+      endGrade.className = `grade-${result.grade}`;
+      endTitle.textContent = result.phase === 'victory' ? 'floresta salva' : 'secou';
+      endScore.textContent = `${result.score} pontos`;
+
+      const st = result.stats;
+      const mm = Math.floor(st.elapsed / 60);
+      const ss = Math.floor(st.elapsed % 60);
+      const aguaPct = Math.round((st.waterLeft / st.waterInitial) * 100);
+      const cob = Math.round((st.trees / st.landTotal) * 100);
+      endStats.innerHTML = [
+        `🌲 ${st.trees} (${cob}%)`,
+        `💧 ${aguaPct}%`,
+        `🔥 ${st.burned}`,
+        `⏱ ${mm}:${String(ss).padStart(2, '0')}`,
+      ].map((t) => `<span>${t}</span>`).join('');
+
+      endMsg.textContent = result.message || '';
+
+      const marcas = [];
+      if (novos && novos.score) marcas.push('recorde de pontos');
+      if (novos && novos.fastest) marcas.push('vitória mais rápida');
+      if (novos && novos.coverage) marcas.push('maior cobertura');
+      if (marcas.length) endRecords.textContent = `★ ${marcas.join(' · ')}`;
+      else if (records && records.bestScore) endRecords.textContent = `melhor: ${records.bestScore}`;
+      else endRecords.textContent = '';
+
+      endEl.classList.remove('hidden');
+      document.body.classList.add('ended');
+    },
+    hideEnd() {
+      endEl.classList.add('hidden');
+      document.body.classList.remove('ended');
+    },
     /** Reflete o estado do som no botão (🔊 / 🔇). */
     setMuted(mudo) {
       muteBtn.textContent = mudo ? '🔇' : '🔊';

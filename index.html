@@ -232,6 +232,93 @@
         white-space: pre;
         pointer-events: none;
       }
+      /* --- tela final --- */
+      #end {
+        position: fixed;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        background: radial-gradient(circle at 50% 40%, rgba(20, 17, 13, 0.82), rgba(8, 7, 5, 0.96));
+        z-index: 60;
+        animation: fade 260ms ease both;
+      }
+      #end.hidden { display: none; }
+      @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+      .end-card {
+        width: min(420px, calc(100vw - 40px));
+        padding: 26px 24px 22px;
+        border-radius: 22px;
+        /* opaco: `--panel-solid` é translúcido (é o fundo da paleta) */
+        background: rgba(22, 19, 14, 0.94);
+        border: 1px solid rgba(255, 255, 255, 0.07);
+        box-shadow: 0 18px 60px rgba(0, 0, 0, 0.65);
+        text-align: center;
+      }
+      #end-grade {
+        font-size: 92px;
+        line-height: 1;
+        font-weight: 800;
+        letter-spacing: -4px;
+        color: var(--ui, #f2e9d8);
+        text-shadow: 0 6px 26px rgba(0, 0, 0, 0.6);
+      }
+      #end-grade.grade-S { color: #ffd05a; }
+      #end-grade.grade-A { color: #7fd18b; }
+      #end-grade.grade-B { color: #7fb6d1; }
+      #end-grade.grade-C { color: #b0a596; }
+      #end-grade.grade-D { color: #d1897f; }
+      #end-grade.grade-F { color: #e0563f; }
+      #end-title {
+        margin-top: 6px;
+        font-size: 19px;
+        font-weight: 600;
+        letter-spacing: 0.2px;
+      }
+      #end-score {
+        margin-top: 2px;
+        font-size: 13px;
+        font-variant-numeric: tabular-nums;
+        color: var(--ui-dim, #a99c88);
+      }
+      #end-stats {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 8px 16px;
+        margin: 18px 0 4px;
+        font-size: 14px;
+        font-variant-numeric: tabular-nums;
+      }
+      #end-stats span { white-space: nowrap; }
+      #end-msg {
+        margin: 14px 0 0;
+        font-size: 13px;
+        line-height: 1.5;
+        color: var(--ui-dim, #a99c88);
+      }
+      #end-records {
+        margin-top: 12px;
+        font-size: 12px;
+        color: #ffd05a;
+        min-height: 15px;
+      }
+      #end-restart {
+        margin-top: 18px;
+        width: 100%;
+        padding: 13px 16px;
+        border: 0;
+        border-radius: 14px;
+        background: rgba(255, 255, 255, 0.1);
+        color: var(--ui, #f2e9d8);
+        font-size: 15px;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      #end-restart:hover { background: rgba(255, 255, 255, 0.18); }
+      /* Partida encerrada: a paleta não serve mais para nada. */
+      body.ended #palette,
+      body.ended #hint { display: none; }
+
       #hint {
         position: fixed;
         left: 50%;
@@ -255,7 +342,7 @@
         }
       }
       @media (prefers-reduced-motion: reduce) {
-        #hint {
+        /* --- tela final --- */      #hint {
           animation: none;
         }
         .gauge .fill {
@@ -293,6 +380,18 @@
       </button>
       <button id="mute-btn" title="Som (M)" aria-label="Ligar ou desligar o som">🔊</button>
       <button id="reset-btn" title="Recomeçar (toque 2×)" aria-label="Recomeçar o jogo">↺</button>
+    </div>
+
+    <div id="end" class="hidden" role="dialog" aria-modal="true" aria-labelledby="end-title">
+      <div class="end-card">
+        <div id="end-grade">S</div>
+        <div id="end-title">floresta salva</div>
+        <div id="end-score"></div>
+        <div id="end-stats"></div>
+        <p id="end-msg"></p>
+        <div id="end-records"></div>
+        <button id="end-restart">recomeçar</button>
+      </div>
     </div>
 
     <div id="hint">arraste para plantar · dois dedos ou botão direito movem</div>

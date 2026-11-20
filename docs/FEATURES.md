@@ -7,7 +7,7 @@ Legenda: ✅ funcionando · 🧪 implementado mas sem verificação visual · �
 
 ## Estado atual
 
-**M1–M7 concluídos** — mundo isométrico navegável,
+**M1–M7, M9 e M10 concluídos** — mundo isométrico navegável,
 floresta de 4 espécies, pintura de água que drena o rio, fogo balanceado com
 spray e cinzas, bombardeio com voo visível e explosão, e **áudio procedural**
 (sem nenhum arquivo de som) e **save + PWA** (instalável e jogável offline).
@@ -93,6 +93,19 @@ spray e cinzas, bombardeio com voo visível e explosão, e **áudio procedural**
 | Sombra no alvo que cresce | ✅ | única dica de onde cai |
 | Impacto: clarão, anel, poeira, tremor, ignição raio 5 | ✅ | ~500 tiles queimados por impacto |
 | `B` solta bomba no cursor (debug) | ✅ | só com `?debug=1` |
+
+## Fim de jogo e pontuação
+
+| Feature | Status | Observações |
+| --- | --- | --- |
+| Vitória ao atingir 90% de cobertura | ✅ | checada a cada frame |
+| Derrota: água zerada **e** fogo ativo | ✅ | "secou" |
+| Sim e pintura congelam ao fim | ✅ | partícula em voo termina |
+| Tela final: nota grande, stats por ícone, mensagem | ✅ | S/A/B/C/D e F na derrota |
+| Pontuação 1000·cob + 500·água + 500·rapidez | ✅ | máx 2000 |
+| Recordes em localStorage | ✅ | `ar.records` (só vitórias) |
+| Partida encerrada não é salva | ✅ | recarregar começa outra |
+| `V` / `L` forçam vitória/derrota (debug) | ✅ | só com `?debug=1` |
 
 ## Save e PWA
 

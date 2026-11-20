@@ -63,6 +63,7 @@ Regra de ouro: **a simulação não conhece pixels; o render não conhece regras
 | `src/sim/paint.js` | ✅ | plantar, alagar, brush, trilha, drenagem do rio | render |
 | `src/sim/fire.js` | ✅ | ignição, propagação (R0), spray, cinza, umidade | render |
 | `src/render/fire.js` | ✅ | chamas (sprites + halo), fumaça, vapor | simulação |
+| `src/game.js` | ✅ | máquina de estados, pontuação, recordes, mensagens | main |
 | `src/save.js` | ✅ | serialização binária do mundo em localStorage | main |
 | `sw.js` | ✅ | app shell offline (cache versionado) | — |
 | `src/audio.js` | ✅ | síntese WebAudio, throttle, cama de fogo, assovio | sim + render |
@@ -272,6 +273,30 @@ fogo; medido no probe: RMS 0 em repouso, 0,015 com 107 focos, pico 0,05 na bomba
 
 **Pan estéreo:** `panFor(x, y)` em `main.js` converte a posição do tile para
 −1..1 e o módulo usa `StereoPannerNode`.
+
+## 5g. Fim de jogo (`src/game.js`)
+
+```
+playing ──(cobertura ≥ 90%)──────────► victory
+     └───(waterTotal ≈ 0 e burning>0)─► drought
+```
+
+- `checkEnd(game, grid, elapsed)` roda a cada frame (cobertura é O(1); água e
+  focos são contadores). Devolve `result` uma única vez — a fase já mudou, então
+  chamadas seguintes devolvem `null`.
+- `endGame` congela o `result`: `{ phase, score, grade, parts, stats }` — stats =
+  árvores, terra, árvores perdidas (`game.burned`, contado por evento `ash`),
+  tempo, água restante/inicial, focos restantes.
+- `computeScore`: 1000·cobertura + 500·(água/inicial) + 500·rapidez, com
+  `rapidez = max(0, (PAR − t)/PAR)` e PAR = 480 s. Máximo 2000.
+- `gradeFor(score, phase)`: S/A/B/C/D por faixas; `drought` força `F` (a nota é a
+  piada, não um cálculo).
+- `updateRecords(result)`: grava só vitórias em `ar.records`
+  (`bestScore`, `bestCoverage`, `fastestWin`) e devolve quais recordes caíram.
+- `endMessage(result)`: duas variantes de vitória (rápida/lenta) e uma de seca.
+
+No `main.js`, `finish(result)` mostra a tela, grava recordes e liga
+`saveDescartado` (a partida acabou: recarregar começa outra).
 
 ## 5f. Save (`src/save.js`)
 
