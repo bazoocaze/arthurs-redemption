@@ -73,6 +73,8 @@ let lastHoverKey = '';
 let lastShimmer = -1;
 let lastPaintTile = null;
 let fitted = false;
+// Câmera do save esperando o viewport existir (ver `resize`).
+let savedView = null;
 
 // --- pintura --------------------------------------------------------------
 
@@ -241,9 +243,10 @@ if (SAVED) {
     // evento); dar 8 s de respiro evita tomar bomba no primeiro frame.
     bombs.nextEventAt = Math.max(meta.bombs.nextEventAt, bombs.elapsed + 8);
     if (meta.camera.zoom > 0) {
-      camera.x = meta.camera.x;
-      camera.y = meta.camera.y;
-      camera.zoom = meta.camera.zoom;
+      // O save devolve o LUGAR onde a partida parou, não o zoom: o zoom de
+      // abertura é sempre CAM.initialZoom. Guardar em vez de aplicar agora
+      // porque o centro só pode ser calculado depois de `setViewport`.
+      savedView = meta.camera;
       fitted = true;
     }
     state.brushRadius = meta.ui.brushRadius || state.brushRadius;
@@ -263,7 +266,15 @@ function resize() {
   canvas.height = Math.round(h * dpr);
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   camera.setViewport(w, h);
-  if (!fitted) {
+  if (savedView) {
+    // Retomada: continua na mesma região, trocando para o zoom de abertura.
+    const cx = savedView.x + w / (2 * savedView.zoom);
+    const cy = savedView.y + h / (2 * savedView.zoom);
+    camera.zoom = CAM.initialZoom;
+    camera.centerOn(cx, cy);
+    savedView = null;
+    fitted = true;
+  } else if (!fitted) {
     // Abre em zoom 1 (detalhe), centrado no mapa. `F` reenquadra o mundo.
     camera.zoom = CAM.initialZoom;
     camera.centerOn(WORLD_W / 2, WORLD_H / 2);
