@@ -114,6 +114,7 @@ spray e cinzas, bombardeio com voo visível e explosão, e **áudio procedural**
 | --- | --- | --- |
 | Save automático a cada 10 s | ✅ | ~5 ms por save, invisível |
 | Save ao trocar de aba / fechar | ✅ | `visibilitychange` + `pagehide` |
+| Pausa fora da aba | ✅ | fogo, bombas, relógio e áudio param; volta no mesmo lugar |
 | Retomada completa (árvores, fogo, água, cinzas) | ✅ | 123 KB de base64 |
 | Retomada de câmera, ferramenta e pincel | ✅ | |
 | Terreno não é salvo (regenerado pela seed) | ✅ | determinismo do gerador |
@@ -121,6 +122,9 @@ spray e cinzas, bombardeio com voo visível e explosão, e **áudio procedural**
 | `?fresh=1` começa do zero | ✅ | |
 | Recomeçar com 2 toques (↺) | ✅ | sem modal |
 | Manifest instalável com ícones 192/512/maskable | ✅ | `tools/icons.mjs` gera os PNG |
+| `id` próprio no manifest | ✅ | `/arthurs-redemption/` — sem ele o Chrome deriva do `start_url` e a identidade fica ambígua entre PWAs do mesmo domínio |
+| Tela cheia instalada | ✅ | `display: fullscreen` + `display_override` + metas de iOS |
+| Botão de instalar (📲) | ✅ | `beforeinstallprompt`; no iOS vira dica no rodapé |
 | Service worker com app shell | ✅ | 27 arquivos em cache |
 | Offline | ✅ | stale-while-revalidate (network-first em localhost) |
 

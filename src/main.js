@@ -459,10 +459,44 @@ function tickSave(dt) {
   salvar();
 }
 
+// --- pause ----------------------------------------------------------------
+// Fora da aba o jogo não simula: fogo, bombas e o relógio da partida param, e o
+// áudio é suspenso (a cama de fogo continuaria tocando na aba escondida).
+// `visibilitychange` cobre trocar de aba, minimizar, trocar de app no celular e
+// bloquear a tela — que é o que "não estar na tela" significa aqui.
+let pausado = false;
+
+function pausar() {
+  if (pausado) return;
+  pausado = true;
+  audio.suspender();
+  lastTs = 0; // o próximo frame não conta o tempo parado
+}
+
+function retomar() {
+  if (!pausado) return;
+  pausado = false;
+  lastTs = 0;
+  audio.retomar();
+  dirty = true; // a aba pode voltar com o canvas desatualizado
+}
+
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'hidden') salvar();
+  if (document.visibilityState === 'hidden') {
+    pausar();
+    salvar();
+  } else {
+    retomar();
+  }
 });
-window.addEventListener('pagehide', salvar);
+window.addEventListener('pagehide', () => {
+  pausar();
+  salvar();
+});
+// Voltando do cache de navegação (bfcache) a página é a mesma: só retoma.
+window.addEventListener('pageshow', (e) => {
+  if (e.persisted) retomar();
+});
 
 function render() {
   const t0 = performance.now();
@@ -511,6 +545,14 @@ for (const evName of ['pointerdown', 'keydown']) {
 }
 
 function frame(ts) {
+  // Pausado: nada de simulação, partículas, música ou desenho. Só o RAF
+  // continua batendo para o jogo retomar no mesmo lugar.
+  if (pausado) {
+    lastTs = 0;
+    requestAnimationFrame(frame);
+    return;
+  }
+
   const dt = lastTs ? Math.min((ts - lastTs) / 1000, TIME.maxDt) : 0;
   lastTs = ts;
   lastDt = dt;
@@ -619,4 +661,6 @@ requestAnimationFrame(frame);
 window.__game = {
   grid, camera, state, stats, hooks, fx, bombs, bombFx, audio,
   seed: SEED, retomado, salvar, clearSave, game, records: loadRecords(), PHASE,
+  get pausado() { return pausado; },
+  get auditivo() { return audio.ativo ? audio.debugCtx.state : 'sem contexto'; },
 };

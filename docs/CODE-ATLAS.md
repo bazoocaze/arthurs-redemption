@@ -338,6 +338,11 @@ recebe `max(salvo, agora + 8 s)` para um save feito no instante do evento não
 bombardear no primeiro frame. O botão ↺ liga `saveDescartado`, senão o
 `pagehide` regravaria o estado recém-descartado.
 
+Junto do save, `visibilitychange` **pausa** o jogo (`pausar`/`retomar`): o
+`frame` retorna antes de qualquer update/render, `lastTs` é zerado para o `dt` não
+contar o tempo parado e o `AudioContext` é suspenso (`audio.suspender()`), senão a
+cama de fogo continuaria tocando com a aba escondida.
+
 ## 6. Tunables (`config.js`)
 
 | Chave | Valor inicial | Nota |

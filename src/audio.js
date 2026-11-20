@@ -315,6 +315,19 @@ export function createAudio() {
     // 'ash' é silencioso de propósito: cinza não pede atenção
   }
 
+  /**
+   * Aba escondida/jogo pausado: suspende o contexto inteiro. Só zerar a cama
+   * de fogo não bastaria — um estalo ou assovio agendado ainda tocaria.
+   */
+  function suspender() {
+    if (ctx && ctx.state === 'running') ctx.suspend().catch(() => {});
+  }
+
+  /** Volta do pause; se o jogador está no mudo, o master já está em 0. */
+  function retomar() {
+    if (ctx && ctx.state === 'suspended') ctx.resume().catch(() => {});
+  }
+
   function toggleMute() {
     muted = !muted;
     salvarMudo();
@@ -327,6 +340,8 @@ export function createAudio() {
     play,
     update,
     toggleMute,
+    suspender,
+    retomar,
     // Expostos só para o probe medir sinal (RMS). Não usar no jogo.
     get debugCtx() { return ctx; },
     get debugMaster() { return master; },
