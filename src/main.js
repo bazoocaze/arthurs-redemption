@@ -178,7 +178,8 @@ function updateDebug(dt) {
 
 // --- loop -----------------------------------------------------------------
 
-function needsFrame() {
+// Motivo de frame que depende de ENTRADA: tem prioridade absoluta, sem throttle.
+function inputFrame() {
   const sig = camera.signature();
   if (sig !== lastSig) {
     lastSig = sig;
@@ -189,6 +190,11 @@ function needsFrame() {
     lastHoverKey = hk;
     return true;
   }
+  return false;
+}
+
+// Motivo de frame só visual (fogo, fumaça, umidade, shimmer da água).
+function animFrame() {
   if (grid.burningCount > 0 || fx.smoke.length > 0 || grid.wetTiles.length > 0) return true;
   const shimmer = Math.floor(time * TIME.waterShimmerHz);
   if (shimmer !== lastShimmer) {
@@ -214,7 +220,8 @@ function updateFire(dt) {
   }
   if (fireAcc > FIRE_DT * 8) fireAcc = 0;
   updateFx(fx, grid, dt);
-  if (grid.burningCount > 0) dirty = true; // fogo anima: redesenha todo frame
+  // NÃO marcar `dirty` aqui: o fogo é animação, não entrada. Quem pede o frame é
+  // `animFrame()`, que obedece ao teto de `TIME.animHz`.
 }
 
 function render() {
@@ -238,6 +245,7 @@ function render() {
 }
 
 let lastTs = 0;
+let lastRenderTs = -1e9;
 function frame(ts) {
   const dt = lastTs ? Math.min((ts - lastTs) / 1000, TIME.maxDt) : 0;
   lastTs = ts;
@@ -246,9 +254,16 @@ function frame(ts) {
   input.update(dt);
   updateFire(dt);
 
-  const redrawn = dirty || needsFrame();
+  // Ordem: entrada renderiza na hora; animação obedece ao teto de `TIME.animHz`.
+  let redrawn = dirty || inputFrame();
+  if (!redrawn && animFrame()) {
+    const gap = 1000 / TIME.animHz;
+    if (ts - lastRenderTs >= gap - 2) redrawn = true; // -2 ms absorve jitter do RAF
+  }
+
   if (redrawn) {
     render();
+    lastRenderTs = ts;
     dirty = false;
     stats.frames++;
   } else {

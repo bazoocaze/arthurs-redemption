@@ -35,6 +35,7 @@ bombas, áudio nem save.
 | `F` enquadra o mundo inteiro | ✅ | |
 | Culling de tiles/árvores no viewport | ✅ | |
 | Dirty flag de frame (não redesenha parado) | ✅ | câmera/hover/shimmer |
+| Teto de 30 Hz para frames só-animados | ✅ | entrada (pintar/mover) continua em 60 |
 | Chip de perf sempre visível | ✅ | `fps · % redraw`, alternado com a tecla `` ` `` |
 | Painel de debug (`?debug=1` ou `` ` ``) | ✅ | fps, redraw %, ms por camada (terreno/árvores/overlay), tiles, árvores, cobertura, água, seed, frames pulados |
 

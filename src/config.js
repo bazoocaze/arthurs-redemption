@@ -125,4 +125,9 @@ export const COLORS = {
 export const TIME = {
   maxDt: 0.05, // clamp do delta para não explodir depois de aba em background
   waterShimmerHz: 2.5,
+  // Teto de redesenho quando o ÚNICO motivo do frame é animação (fogo, fumaça,
+  // shimmer). As chamas trocam de quadro a 9 Hz e a fumaça sobe a ~1 px/frame,
+  // então 30 fps é visualmente idêntico e custa metade. Entrada (pintar, mover a
+  // câmera, hover) NUNCA é limitada: latência de input fica em 60 fps.
+  animHz: 30,
 };

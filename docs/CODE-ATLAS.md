@@ -128,34 +128,41 @@ ordenado por `x + y`.
 
 ## 5. Loop e dirty flags
 
-Dois níveis distintos — não confundir:
+Só existe **dirty de frame** (o nível de chunks assados foi descartado — ver
+§11: terreno custa 3 ms com `Path2D.rect` em espaço de tile, não compensa a
+complexidade de invalidação).
 
-1. **Dirty de chunk (estático).** Chunks de `8×8` tiles assados em canvas
-   offscreen contendo terra + água + árvore + cinza. Qualquer mutação chama
-   `grid.invalidateTile(x, y)`, que marca `chunk.dirty = true`; só chunks sujos
-   são re-assados, no máximo N por frame.
-2. **Dirty de frame (dinâmico).** Se `camera` não mudou, nenhum chunk foi
-   reassado, e não há partículas/bombas/fogo ativos, o frame anterior do canvas
-   é reaproveitado (não redesenha nada). `renderer.needsFrame` é o flag.
+Cada frame do RAF é decidido por duas classes de motivo, em `main.js`:
 
-**Estado atual (M3):** o nível 2 está implementado em `main.js`
-(`needsFrame()` compara assinatura da câmera, tile sob o cursor e o tick do
-brilho da água). O nível 1 (chunks assados) ainda não existe: `drawTerrain`
-redesenha os tiles visíveis acumulando losangos em um `Path2D` por cor, o que
-custa ~6 `fill()` por frame em vez de um por tile.
+| motivo | exemplos | quando redesenha |
+| --- | --- | --- |
+| **entrada** | pintou, moveu a câmera, hover mudou | imediatamente, sem throttle |
+| **animação** | fogo, fumaça, umidade, shimmer da água | respeita `TIME.animHz` |
 
-Terreno e árvores são redesenhados por frame (não há camada assada): veja a
-seção 11, que explica por que isso ficou barato o suficiente para não precisar
-de chunks.
+```js
+let redrawn = dirty || inputFrame();          // entrada tem prioridade
+if (!redrawn && animFrame())                  // só animação?
+  if (ts - lastRenderTs >= 1000/TIME.animHz - 2) redrawn = true;
+```
 
-O que será dinâmico e sempre desenhado por frame: fogo, fumaça, bombas em voo,
-explosões, respingos, highlight do brush, cursor.
+`-2 ms` absorve o jitter do RAF: com RAF a 60 Hz, um teto de 30 Hz rende
+exatamente 1 frame sim / 1 não. **Entrada nunca é limitada** — latência de pintar
+e arrastar continua a 60 fps; a economia vem só de animação.
 
-**Agrupamento visual (clusters).** Nada de flood fill global: ao plantar ou
-queimar um tile, olhar a janela 5x5 e decidir se o tile pertence a um cluster
-(2x2+ de árvores da mesma espécie). O render desenha um tile de agrupamento
-(moita/bosque) em vez de N árvores individuais, e o chunk é invalidado
-normalmente.
+Por que 30 Hz basta para o fogo: as chamas trocam de quadro a 9 Hz e a fumaça
+sobe ~1 px por frame. Medido com 53 focos + 120 partículas (headless, sem GPU):
+
+| | antes | depois | |
+| --- | --- | --- | --- |
+| redraws/s | 42 (100%) | 30 (50%) | |
+| ms de render por segundo | 147 | 102 | **-30%** |
+| RAF fps | 42 | 60 | sobra folga |
+
+Cuidado ao adicionar efeitos: **marcar `dirty = true` dentro de uma animação
+fura o throttle**, porque classifica o frame como entrada. Foi o bug do primeiro
+teste do fogo (100% de redraw com 42 fps).
+
+Ver também §11 para o custo por efeito.
 
 ## 5b. Fluxo do fogo (`sim/fire.js`)
 
@@ -236,6 +243,7 @@ ferramenta cava lago — daí a dica do HUD mudar com a ferramenta.
 | `WATER.sprayCost` | 1 | volume por spray encostado no rio |
 | `WATER.sprayDistFactor` | 0.3 | custo de transporte do spray |
 | `WATER.sprayMaxCost` | 5 | teto do custo de spray |
+| `TIME.animHz` | 30 | teto de redesenho só-animação (entrada nunca é limitada) |
 | `RENDER.lodZoom` | 0.45 | abaixo disso árvores viram manchas |
 | `RENDER.groveMax` | 3 | maior bloco agrupado |
 | `SPECIES` | 4 | pinheiro, folhosa, bétula, oliveira (h/w/copas/tronco) |
