@@ -50,6 +50,43 @@ function carveRiver(grid, rng) {
   }
 }
 
+/**
+ * BFS multi-fonte a partir de TODA a água natural.
+ * Produz `distToWater` (0 no rio, 1 na terra encostada) e `waterSource`
+ * (qual tile de rio é o mais próximo — é dele que a água é debitada).
+ */
+function computeWaterField(grid) {
+  const queue = new Int32Array(grid.w * grid.h);
+  let head = 0;
+  let tail = 0;
+
+  for (let i = 0; i < grid.terrain.length; i++) {
+    if (grid.terrain[i] !== TERRAIN.WATER) continue;
+    grid.distToWater[i] = 0;
+    grid.waterSource[i] = i;
+    queue[tail++] = i;
+  }
+
+  const w = grid.w;
+  while (head < tail) {
+    const i = queue[head++];
+    const d = grid.distToWater[i];
+    const src = grid.waterSource[i];
+    const x = i % w;
+    const y = (i / w) | 0;
+    for (let k = 0; k < 4; k++) {
+      const nx = x + (k === 0 ? 1 : k === 1 ? -1 : 0);
+      const ny = y + (k === 2 ? 1 : k === 3 ? -1 : 0);
+      if (nx < 0 || ny < 0 || nx >= grid.w || ny >= grid.h) continue;
+      const j = ny * w + nx;
+      if (grid.distToWater[j] !== -1) continue;
+      grid.distToWater[j] = d + 1;
+      grid.waterSource[j] = src;
+      queue[tail++] = j;
+    }
+  }
+}
+
 /** Gera o mundo. Mesma seed => mesmo terreno, mesmos rios. */
 export function generateWorld(seed) {
   const grid = new Grid(GRID_W, GRID_H);
@@ -73,5 +110,8 @@ export function generateWorld(seed) {
   }
 
   grid.recount();
+  grid.freezeLandTotal();
+  computeWaterField(grid);
+
   return { grid, seed, riverCount };
 }

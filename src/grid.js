@@ -1,5 +1,8 @@
 // Estado do mundo. Arrays paralelos (SoA) por tile — cache friendly e trivial
 // de serializar. Índice i = y * w + x.
+//
+// Contadores: mantidos INCREMENTALMENTE pelas mutações (ver sim/paint.js e
+// sim/fire.js). `recount()` existe para verificação em testes/debug.
 
 export const TERRAIN = { DIRT: 0, WATER: 1 };
 export const STATE = { IDLE: 0, BURNING: 1, ASH: 2 };
@@ -19,8 +22,16 @@ export class Grid {
     this.wet = new Float32Array(n); // segundos restantes de umidade
     this.waterVol = new Float32Array(n); // volume de água no tile
 
-    // Derivados (mantidos por quem muta o grid; ver recount()).
-    this.initialLandTiles = n;
+    // Distância até a água NATURAL (rios gerados), por BFS. Fica congelada:
+    // pintar lago não encurta o caminho — é o que impede o exploit do fosso.
+    this.distToWater = new Int16Array(n).fill(-1);
+    this.waterSource = new Int32Array(n).fill(-1); // tile de rio mais próximo
+
+    this.waterTiles = []; // índices de tiles com água (para drenar)
+
+    // Derivados.
+    this.landTotal = 0; // denominador congelado da cobertura
+    this.landTiles = 0; // terra atual
     this.treeCount = 0;
     this.burningCount = 0;
     this.ashCount = 0;
@@ -36,7 +47,7 @@ export class Grid {
     return x >= 0 && y >= 0 && x < this.w && y < this.h;
   }
 
-  /** Recalcula todos os contadores derivados. Barato (9216 tiles). */
+  /** Recalcula todos os contadores derivados (não toca em `landTotal`). */
   recount() {
     let land = 0;
     let trees = 0;
@@ -44,10 +55,12 @@ export class Grid {
     let ash = 0;
     let water = 0;
     let waterVol = 0;
+    this.waterTiles.length = 0;
     for (let i = 0; i < this.terrain.length; i++) {
       if (this.terrain[i] === TERRAIN.WATER) {
         water++;
         waterVol += this.waterVol[i];
+        this.waterTiles.push(i);
       } else {
         land++;
         if (this.tree[i]) trees++;
@@ -55,7 +68,7 @@ export class Grid {
       if (this.state[i] === STATE.BURNING) burning++;
       else if (this.state[i] === STATE.ASH) ash++;
     }
-    this.initialLandTiles = land;
+    this.landTiles = land;
     this.treeCount = trees;
     this.burningCount = burning;
     this.ashCount = ash;
@@ -63,8 +76,13 @@ export class Grid {
     this.waterTotal = waterVol;
   }
 
-  /** Cobertura de árvores sobre a terra gerada (denominador congelado). */
+  /** Congela o denominador da cobertura (chamar uma vez após a geração). */
+  freezeLandTotal() {
+    this.landTotal = this.landTiles;
+  }
+
+  /** Cobertura de árvores sobre a terra gerada. */
   coverage() {
-    return this.initialLandTiles > 0 ? this.treeCount / this.initialLandTiles : 0;
+    return this.landTotal > 0 ? this.treeCount / this.landTotal : 0;
   }
 }

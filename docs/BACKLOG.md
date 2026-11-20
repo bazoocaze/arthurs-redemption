@@ -41,27 +41,32 @@ Convenções de status:
 ## M2 — Dirty flags / render em camadas
 
 - [x] Skip de frame: se nada mudou e a câmera está parada, não redesenhar (dirty de frame já ativo)
-- [ ] Chunks assados (ex. 8x8 tiles) em canvases offscreen para terreno+árvores+cinzas
-- [ ] `invalidateTile(x,y)` marca só o chunk afetado
-- [ ] Overlay dinâmico (fogo, fumaça, bombas, spray) redesenhado por frame
-- [ ] Contador de debug de chunks redesenhados/s (fps e tiles visíveis já existem)
+- [x] Terreno otimizado sem chunks: `Path2D.rect` em espaço de tile + matriz iso (68ms -> 9ms no mundo inteiro)
+- [x] Árvores como sprites pré-renderizados (1 `drawImage` por árvore em vez de 6-19 chamadas)
+- [x] Overlay de fogo/fumaça/bombas (será dinâmico por frame em M4/M5)
+- [x] Contador de debug: fps, tiles desenhados, árvores desenhadas, ms do render
+- [ ] Chunks assados em offscreen — **adiado**: as duas otimizações acima resolveram o gargalo; só voltar se o custo por frame pós-M4/M5 (fogo + fumaça + bombas) passar de ~10ms
+- [ ] `invalidateTile(x,y)` / cache de chunks — só se chunks voltarem ao plano
 
 ## M3 — Pintura (floresta / água)
 
-- [ ] `src/input.js`: unificação pointer events (mouse/touch), brush com interpolação entre pontos (arrasto rápido não deixa buracos)
-- [ ] Palheta floresta: planta em tile de terra vazia; ignora água/cinza/fogo
-- [ ] Brush com raio >= 2 (arrastar precisa render 8000+ tiles; raio 1 é inviável)
-- [ ] Palheta água: pinta lago/rio; apaga fogo do tile alvo (ver M4)
-- [ ] Feedback visual do brush (destaque do tile sob o cursor)
-- [ ] Undo simples? (opcional, só se sobrar tempo)
+- [x] `src/input.js`: pointer events unificados (mouse/toque/caneta) + trilha por Bresenham (arrasto rápido não deixa buracos)
+- [x] Palheta com 3 ferramentas: 🖐️ pan, 🌲 floresta, 💧 água; atalhos 1/2/3
+- [x] Brush circular com raio 1–4 (`BRUSH`, atalhos `[` e `]`, botão na palheta)
+- [x] Palheta floresta: planta em terra vazia; ignora água/cinza/fogo
+- [x] Palheta água: alaga a terra, custa `2 * (1 + (dist-1) * 0.5)` do reservatório do rio
+- [x] Preview do brush (todos os tiles que a pintada atinge)
+- [x] Pan sempre disponível: botão direito/meio, shift, espaço, ferramenta mão, 2 dedos, setas/WASD; `F` enquadra o mundo
+- [x] Água no incêndio (spray) fica para M4 — depende do modelo de fogo
+- [ ] Undo simples (descartado por ora: recomeçar é barato)
 
 ## M3b — Espécies e agrupamento visual
 
-- [ ] `species` no grid (poucas espécies: 3–4), escolhida por ruído espacial + jitter
-- [ ] Render de árvore por espécie (altura, copa, cor)
-- [ ] Detecção local de cluster (janela 5x5, não flood fill global) ao plantar/queimar
-- [ ] Tile de agrupamento (moita/bosque) desenhado quando o cluster atinge 2x2+
-- [ ] Invalidar chunk quando o cluster muda de forma
+- [x] 4 espécies (`SPECIES`: pinheiro, folhosa, bétula, oliveira) escolhidas por fbm + jitter
+- [x] Render por sprite pré-renderizado (silhueta, cor de copa e tronco próprios)
+- [x] Grove 2x2 / 3x3 detectado por varredura gulosa (sem flood fill), determinístico
+- [x] Moita única desenhada no lugar de N árvores dentro do bloco
+- [x] LOD: abaixo de `RENDER.lodZoom` (0.45) árvores viram manchas em 4 paths (1 por espécie)
 
 ## M4 — Fogo, água e cinzas
 

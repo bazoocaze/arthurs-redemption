@@ -1,11 +1,15 @@
 // Bootstrap e loop principal. Aqui vive a ordem de update/render: simulação não
 // conhece pixels, render não conhece regras.
-import { COLORS, TIME } from './config.js';
+import { COLORS, TIME, BRUSH } from './config.js';
 import { generateWorld } from './generator.js';
 import { Camera } from './camera.js';
-import { attachInput } from './input.js';
+import { createInput } from './input.js';
 import { drawTerrain } from './render/terrain.js';
-import { drawTileHighlight } from './render/overlay.js';
+import { drawTrees } from './render/trees.js';
+import { prebuildSprites } from './render/sprites.js';
+import { drawBrush } from './render/overlay.js';
+import { applyBrush, strokePath } from './sim/paint.js';
+import { createUi } from './ui.js';
 
 const params = new URLSearchParams(location.search);
 const DEBUG = params.get('debug') === '1';
@@ -16,14 +20,69 @@ const ctx = canvas.getContext('2d', { alpha: false });
 
 const { grid } = generateWorld(SEED);
 const camera = new Camera();
-const state = { grid, hover: null, tool: 'pan' };
+const state = {
+  grid,
+  hover: null,
+  tool: 'tree',
+  brushRadius: BRUSH.defaultRadius,
+  seed: SEED,
+};
+
+const stats = { fps: 0, renderMs: 0, drawnTiles: 0, drawnTrees: 0, frames: 0, framesSkipped: 0 };
 
 let dirty = true;
 let time = 0;
 let lastSig = '';
 let lastHoverKey = '';
 let lastShimmer = -1;
+let lastPaintTile = null;
 let fitted = false;
+
+// --- pintura --------------------------------------------------------------
+
+function paintPath(path) {
+  let changed = 0;
+  for (const t of path) changed += applyBrush(grid, t.x, t.y, state.brushRadius, state.tool, SEED);
+  if (changed) {
+    dirty = true;
+    ui.updateHud();
+  }
+  return changed;
+}
+
+const hooks = {
+  beginStroke(tile) {
+    lastPaintTile = tile;
+    paintPath([tile]);
+  },
+  moveStroke(tile) {
+    if (!lastPaintTile) {
+      hooks.beginStroke(tile);
+      return;
+    }
+    const path = strokePath(lastPaintTile, tile);
+    lastPaintTile = tile;
+    if (path.length) paintPath(path);
+  },
+  endStroke() {
+    lastPaintTile = null;
+  },
+  setTool(tool) {
+    state.tool = tool;
+    ui.refreshTool();
+    dirty = true;
+  },
+  setBrushRadius(r) {
+    state.brushRadius = r;
+    ui.updateHud();
+    dirty = true;
+  },
+};
+
+prebuildSprites();
+
+const ui = createUi(state, hooks);
+ui.setWaterInitial(grid.waterTotal);
 
 // --- viewport -------------------------------------------------------------
 
@@ -43,12 +102,11 @@ function resize() {
 }
 
 window.addEventListener('resize', resize);
-attachInput(canvas, camera, state);
+const input = createInput(canvas, camera, state, hooks);
 
 // --- overlay de debug -----------------------------------------------------
 
 const dbgEl = document.getElementById('debug');
-const stats = { fps: 0, drawnTiles: 0, frames: 0, framesSkipped: 0 };
 let fpsAccum = 0;
 let fpsFrames = 0;
 let dbgTimer = 0;
@@ -67,12 +125,12 @@ function updateDebug(dt) {
   const h = state.hover;
   dbgEl.textContent = [
     `fps ${stats.fps}`,
-    `tiles ${stats.drawnTiles}`,
+    `tiles ${stats.drawnTiles} · árvores ${stats.drawnTrees} · ${stats.renderMs.toFixed(1)}ms`,
     `zoom ${camera.zoom.toFixed(3)}`,
-    `cam ${camera.x.toFixed(0)},${camera.y.toFixed(0)}`,
-    `view ${Math.round(camera.viewW)}x${Math.round(camera.viewH)}`,
+    `tool ${state.tool} r${state.brushRadius}`,
     `tile ${h ? `${h.x},${h.y}` : '—'}`,
-    `terra ${grid.initialLandTiles} · água ${grid.waterCount} (vol ${Math.round(grid.waterTotal)})`,
+    `árvores ${grid.treeCount}/${grid.landTotal} (${(grid.coverage() * 100).toFixed(1)}%)`,
+    `água ${grid.waterCount} tiles · vol ${grid.waterTotal.toFixed(0)}`,
     `seed ${SEED}`,
   ].join('\n');
 }
@@ -99,10 +157,15 @@ function needsFrame() {
 }
 
 function render() {
+  const t0 = performance.now();
   ctx.fillStyle = COLORS.bg;
   ctx.fillRect(0, 0, camera.viewW, camera.viewH);
   stats.drawnTiles = drawTerrain(ctx, grid, camera, time);
-  if (state.hover) drawTileHighlight(ctx, camera, state.hover.x, state.hover.y);
+  stats.drawnTrees = drawTrees(ctx, grid, camera);
+  if (state.hover && state.tool !== 'pan') {
+    drawBrush(ctx, grid, camera, state.hover.x, state.hover.y, state.brushRadius);
+  }
+  stats.renderMs = performance.now() - t0;
 }
 
 let lastTs = 0;
@@ -111,9 +174,9 @@ function frame(ts) {
   lastTs = ts;
   time += dt;
 
+  input.update(dt);
   updateDebug(dt);
 
-  // Dirty de frame: nada mudou => não redesenha.
   if (dirty || needsFrame()) {
     render();
     dirty = false;
@@ -130,4 +193,4 @@ if (DEBUG) dbgEl.style.display = 'block';
 requestAnimationFrame(frame);
 
 // Hook de inspeção manual no console (usado pelos probes headless).
-window.__game = { grid, camera, state, stats, seed: SEED };
+window.__game = { grid, camera, state, stats, hooks, seed: SEED };

@@ -55,13 +55,18 @@ Regra de ouro: **a simulação não conhece pixels; o render não conhece regras
 | `src/iso.js` | ✅ | `tileWorldX/Y`, `tileCenterY`, `worldToTile` | estado |
 | `src/camera.js` | ✅ | pan/zoom, `worldToScreen`, `signature()` (dirty) | input bruto |
 | `src/input.js` | ✅ | pointer/wheel → pan, zoom, tile sob o cursor | regras de fogo |
-| `src/render/terrain.js` | ✅ | camada de terreno (hoje: batching por cor; M2: chunks) | simulação |
-| `src/render/overlay.js` | ✅ | highlight do tile sob o cursor | regras |
+| `src/render/terrain.js` | ✅ | terreno: `Path2D.rect` em espaço de tile + matriz iso | simulação |
+| `src/render/trees.js` | ✅ | árvores: groves, sprites, LOD por zoom | regras |
+| `src/render/sprites.js` | ✅ | sprites de árvore pré-renderizados (base + sombra embutida) | estado |
+| `src/render/overlay.js` | ✅ | highlight e preview do brush | regras |
+| `src/grove.js` | ✅ | detecção de bloco NxN da mesma espécie (puro, testável) | canvas |
+| `src/sim/paint.js` | ✅ | plantar, alagar, brush, trilha, drenagem do rio | render |
+| `src/ui.js` | ✅ | palheta, HUD, atalhos | simulação |
 | `src/sim/fire.js` | ⏳ | ignição, propagação, extinção, cinzas, decaimento | áudio/partículas |
 | `src/sim/bombs.js` | ⏳ | agendador de eventos, alvos, voo, impacto | desenho das partículas |
 | `src/sim/water.js` | ⏳ | drenagem de `waterVol`, sucção do tile mais próximo, spray | regras de fogo |
 | `src/sim/score.js` | ⏳ | cobertura, pontuação, estados de vitória/seca | render |
-| `src/render/entities.js` | ⏳ | overlay dinâmico (fogo, spray, árvores em z-order) | regras |
+| `src/render/entities.js` | ⏳ | overlay dinâmico (fogo, spray, cinzas em transição) | regras |
 | `src/render/particles.js` | ⏳ | fumaça, explosão, respingos (pool fixo) | estado do mundo |
 | `src/audio.js` | ⏳ | WebAudio procedural | estado de jogo |
 | `src/save.js` | ⏳ | (de)serialização versionada | regras |
@@ -83,6 +88,8 @@ e serialização trivial. Índice `i = y * GRID_W + x`.
 | `ashT` | Float32 | segundos desde que virou cinza (decai em 60s) |
 | `wet` | Float32 | segundos restantes de umidade |
 | `waterVol` | Float32 | volume de água restante no tile (drenado ao apagar fogo) |
+| `distToWater` | Int16 | distância BFS até água NATURAL (-1 = inalcançável); congelado |
+| `waterSource` | Int32 | índice do tile de rio mais próximo (de onde a água é debitada) |
 
 Invariantes (validar em modo `?debug=1`):
 
@@ -129,14 +136,18 @@ Dois níveis distintos — não confundir:
    reassado, e não há partículas/bombas/fogo ativos, o frame anterior do canvas
    é reaproveitado (não redesenha nada). `renderer.needsFrame` é o flag.
 
-**Estado atual (M1):** o nível 2 está implementado em `main.js`
+**Estado atual (M3):** o nível 2 está implementado em `main.js`
 (`needsFrame()` compara assinatura da câmera, tile sob o cursor e o tick do
 brilho da água). O nível 1 (chunks assados) ainda não existe: `drawTerrain`
 redesenha os tiles visíveis acumulando losangos em um `Path2D` por cor, o que
 custa ~6 `fill()` por frame em vez de um por tile.
 
-O que é dinâmico e sempre desenhado por frame (sobre o assado): fogo, fumaça,
-bombas em voo, explosões, respingos, highlight do brush, cursor.
+Terreno e árvores são redesenhados por frame (não há camada assada): veja a
+seção 11, que explica por que isso ficou barato o suficiente para não precisar
+de chunks.
+
+O que será dinâmico e sempre desenhado por frame: fogo, fumaça, bombas em voo,
+explosões, respingos, highlight do brush, cursor.
 
 **Agrupamento visual (clusters).** Nada de flood fill global: ao plantar ou
 queimar um tile, olhar a janela 5x5 e decidir se o tile pertence a um cluster
@@ -144,7 +155,7 @@ queimar um tile, olhar a janela 5x5 e decidir se o tile pertence a um cluster
 (moita/bosque) em vez de N árvores individuais, e o chunk é invalidado
 normalmente.
 
-## 6. Tunables (`config.js`) `[planejado]`
+## 6. Tunables (`config.js`)
 
 | Chave | Valor inicial | Nota |
 | --- | --- | --- |
@@ -171,6 +182,13 @@ normalmente.
 | `WIN_COVERAGE` | 0.90 | vitória (denominador congelado na geração) |
 | `SCORE_PAR_TIME` | 480 s | PAR de tempo da pontuação |
 | `SAVE_EVERY` | ~10 s | autosave |
+| `BRUSH.min/max/defaultRadius` | 1 / 4 / 2 | raio do pincel em tiles |
+| `WATER.paintBase` | 2 | custo de alagar encostado no rio (2:1) |
+| `WATER.paintDistFactor` | 0.5 | custo = `base * (1 + (dist-1) * fator)` |
+| `WATER.pondVolume` | 1 | volume do tile alagado |
+| `RENDER.lodZoom` | 0.45 | abaixo disso árvores viram manchas |
+| `RENDER.groveMax` | 3 | maior bloco agrupado |
+| `SPECIES` | 4 | pinheiro, folhosa, bétula, oliveira (h/w/copas/tronco) |
 
 Balanceamento se ajusta **aqui**, nunca espalhado pelo código.
 
@@ -234,3 +252,29 @@ houver erro de página. É a forma padrão de verificar UI sem abrir navegador.
 
 `window.__game = { grid, camera, state, stats, seed }` fica exposto para o
 probe e para inspeção manual no console.
+
+## 11. Orçamento de chamadas nativas (Canvas2D)
+
+Aprendizado medido neste projeto, em Chromium headless (rasterização em
+software — pior caso, sem GPU):
+
+| Operação, 9216 tiles | ms |
+| --- | --- |
+| losango via `moveTo` + 3 `lineTo` + `closePath` (5 chamadas/tile) | 35 |
+| `Path2D.rect` + matriz iso (1 chamada/tile) | 4 |
+| `ctx.fillRect` (1 chamada/tile) | 4.4 |
+
+O gargalo é a **quantidade de chamadas nativas** (~1,4 µs cada), não a área
+pintada. Regras que valem para o resto do projeto:
+
+1. **Batche em espaço de tile.** `ctx.transform(HW*z, HH*z, -HW*z, HH*z, tx, ty)`
+   converte o quadrado unitário no losango exato, então cada tile custa 1
+   `rect()` em vez de 5 chamadas.
+2. **Uma chamada por objeto.** Árvore desenhada à mão custava 6–19 chamadas
+   (17 ms / ~1200 árvores); sprite pré-renderizado custa 1 `drawImage`.
+   Sombras vão embutidas no sprite.
+3. **`rect()` em vez de linha/elipse** quando a forma cabe numa caixa.
+4. Meça com o overlay de debug (`renderMs`), não com o fps do RAF — o fps conta
+   ticks, não custo real (o dirty flag pula frames).
+
+Em GPU real esses números são bem menores; trate-os como limite superior.
