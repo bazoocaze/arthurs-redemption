@@ -460,10 +460,14 @@ function tickSave(dt) {
 }
 
 // --- pause ----------------------------------------------------------------
-// Fora da aba o jogo não simula: fogo, bombas e o relógio da partida param, e o
-// áudio é suspenso (a cama de fogo continuaria tocando na aba escondida).
-// `visibilitychange` cobre trocar de aba, minimizar, trocar de app no celular e
-// bloquear a tela — que é o que "não estar na tela" significa aqui.
+// Fora da tela o jogo não simula: fogo, bombas e o relógio da partida param, e o
+// áudio é suspenso (a cama de fogo continuaria tocando).
+//
+// `visibilitychange` sozinho não basta no Android: dependendo do aparelho e do
+// jeito de sair (trocar de app pelo seletor, tela bloqueada, gaveta de apps) a
+// página perde o foco sem virar `hidden`, e o áudio segue tocando. Por isso o
+// pause escuta três sinais independentes — visibilidade, foco e o congelamento
+// do ciclo de vida — e retomar exige que TODOS liberem.
 let pausado = false;
 
 function pausar() {
@@ -475,6 +479,8 @@ function pausar() {
 
 function retomar() {
   if (!pausado) return;
+  // Ainda escondida: um `focus` isolado (ex.: aviso do sistema) não retoma.
+  if (document.visibilityState === 'hidden') return;
   pausado = false;
   lastTs = 0;
   audio.retomar();
@@ -489,6 +495,17 @@ document.addEventListener('visibilitychange', () => {
     retomar();
   }
 });
+
+// Android: sair pelo seletor de apps ou bloquear a tela às vezes só tira o foco.
+window.addEventListener('blur', () => {
+  if (!document.hasFocus()) pausar();
+});
+window.addEventListener('focus', retomar);
+
+// Ciclo de vida da página (Page Lifecycle API): o navegador congela a aba antes
+// de matá-la, e o áudio precisa calar antes disso.
+document.addEventListener('freeze', pausar);
+document.addEventListener('resume', retomar);
 window.addEventListener('pagehide', () => {
   pausar();
   salvar();
