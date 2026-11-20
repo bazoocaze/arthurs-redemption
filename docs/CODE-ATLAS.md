@@ -52,6 +52,8 @@ Regra de ouro: **a simulação não conhece pixels; o render não conhece regras
 | `src/input.js` | eventos pointer/wheel → intents (brush, pan, zoom) | regras de fogo |
 | `src/sim/fire.js` | ignição, propagação, extinção, cinzas, decaimento | áudio/partículas |
 | `src/sim/bombs.js` | agendador de eventos, alvos, voo, impacto | desenho das partículas |
+| `src/sim/water.js` | drenagem de `waterVol`, sucção do tile mais próximo, spray | regras de fogo |
+| `src/sim/score.js` | cobertura (terra vs árvore), estados de vitória/seca | render |
 | `src/render/terrain.js` | camada assada em chunks (terra, água, árvores, cinzas) | simulação |
 | `src/render/entities.js` | overlay dinâmico (fogo, spray, sombra/highlight) | regras |
 | `src/render/particles.js` | fumaça, explosão, respingos (pool fixo) | estado do mundo |
@@ -68,10 +70,12 @@ e serialização trivial. Índice `i = y * GRID_W + x`.
 | --- | --- | --- |
 | `terrain` | Uint8 | `0` terra, `1` água |
 | `tree` | Uint8 | `0` vazio, `1` árvore |
+| `species` | Uint8 | índice da espécie (3–4), escolhida por ruído espacial + jitter |
 | `state` | Uint8 | `0` idle, `1` queimando, `2` cinza |
 | `fireHp` | Uint8 | aplicações de água restantes para debelar |
 | `ashT` | Float32 | segundos desde que virou cinza (decai em 60s) |
 | `wet` | Float32 | segundos restantes de umidade |
+| `waterVol` | Float32 | volume de água restante no tile (drenado ao apagar fogo) |
 
 Invariantes (validar em modo `?debug=1`):
 
@@ -79,6 +83,7 @@ Invariantes (validar em modo `?debug=1`):
 2. `state === 1` (fogo) ⟹ `tree === 1` e `terrain === 0` (fogo não vive na água).
 3. `terrain === 1` ⟹ `tree === 0` e `state === 0`.
 4. `fireHp > 0` apenas quando `state === 1`.
+5. `waterVol > 0` apenas quando `terrain === 1`.
 
 Serialização: cabeçalho `{version, seed, elapsed, score, arrays}` + arrays
 comprimidos (RLE é suficiente; PNG/zlib não vale a complexidade).
@@ -120,6 +125,12 @@ Dois níveis distintos — não confundir:
 O que é dinâmico e sempre desenhado por frame (sobre o assado): fogo, fumaça,
 bombas em voo, explosões, respingos, highlight do brush, cursor.
 
+**Agrupamento visual (clusters).** Nada de flood fill global: ao plantar ou
+queimar um tile, olhar a janela 5x5 e decidir se o tile pertence a um cluster
+(2x2+ de árvores da mesma espécie). O render desenha um tile de agrupamento
+(moita/bosque) em vez de N árvores individuais, e o chunk é invalidado
+normalmente.
+
 ## 6. Tunables (`config.js`) `[planejado]`
 
 | Chave | Valor inicial | Nota |
@@ -131,11 +142,18 @@ bombas em voo, explosões, respingos, highlight do brush, cursor.
 | `BOMB_MAX_CONCURRENT` | 5 | teto |
 | `BOMB_RAMP_EVERY` | 60 s | +1 bomba por evento |
 | `BOMB_FLIGHT_TIME` | ~1.8 s | travessia visível |
-| `FIRE_SPREAD_CHANCE` | baixa (~0.06/tick) | fogo lento |
+| `FIRE_SPREAD_CHANCE` | ~0.012/s | derivado de R0, não chutado |
+| `FIRE_BURN_TIME` | ~10 s | tempo queimando antes de virar cinza |
+| `FIRE_R0_TARGET` | < 1.0 | `R0 = vizinhos(~7) * chance/s * burnTime`; R0 >= 1 torna o jogo impossível em 90% de densidade |
 | `FIRE_SPREAD_INTERVAL` | ~1.0 s | tick de propagação |
 | `FIRE_WATER_HITS` | 4 | pintadas para debelar |
 | `WET_DURATION` | ~6 s | umidade pós-spray |
 | `ASH_DECAY` | 60 s | cinza → terra |
+| `BRUSH_RADIUS` | 2–3 | raio 1 é inviável para cobrir ~8000 tiles |
+| `WATER_TILE_MAX` | ~10 | volume por tile de água |
+| `SPRAY_COST` | 1 / hit | cobrado do tile de água mais próximo |
+| `SPRAY_REACH` | ~12 tiles | alcance da sucção |
+| `COVERAGE_GOAL` | 0.90 | vitória |
 | `SAVE_EVERY` | ~10 s | autosave |
 
 Balanceamento se ajusta **aqui**, nunca espalhado pelo código.
