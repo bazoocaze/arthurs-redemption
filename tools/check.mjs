@@ -12,7 +12,9 @@ import { WATER, FIRE, FIRE_CHANCE } from '../src/config.js';
 import {
   ignite, igniteRadius, stepFire, soak, sprayTile, sprayBrush, extinguish, expectedR0,
 } from '../src/sim/fire.js';
-import { createBombs, updateBombs, launchEvent, pickTarget, bombsForEvent, dropBomb } from '../src/sim/bombs.js';
+import {
+  createBombs, updateBombs, launchEvent, pickTarget, pickRandom, pickForest, bombsForEvent, dropBomb,
+} from '../src/sim/bombs.js';
 import { BOMB } from '../src/config.js';
 
 let failures = 0;
@@ -470,22 +472,45 @@ check('alvo nunca cai na água', () => {
     assert(g.terrain[g.idx(t.x, t.y)] !== TERRAIN.WATER, `alvo na água em ${t.x},${t.y}`);
   }
 });
-check('alvo prefere floresta a terra vazia', () => {
+check('alvo: metade aleatório, metade mira floresta', () => {
   const g = fireGrid(32, 32);
   fillTrees(g, 2, 2, 29, 29);
   // metade direita vazia
   for (let y = 0; y < g.h; y++) for (let x = 16; x < g.w; x++) g.tree[g.idx(x, y)] = 0;
   g.treeCount = 0;
   g.recount();
+
   const b = createBombs(123);
+  const N = 400;
   let naFloresta = 0;
-  const N = 200;
   for (let k = 0; k < N; k++) {
     const t = pickTarget(b, g);
     if (g.tree[g.idx(t.x, t.y)] === 1) naFloresta++;
   }
   const frac = naFloresta / N;
-  assert(frac > 0.6, `só ${(frac * 100).toFixed(0)}% dos alvos caíram em floresta`);
+  // metade aleatória acerta ~50% (mapa meio a meio); metade mirando floresta ~85%.
+  // Esperado ~0,67. Banda larga porque é estatística.
+  assert(frac > 0.5 && frac < 0.85, `${(frac * 100).toFixed(0)}% dos alvos em floresta (esperado ~67%)`);
+});
+check('modo floresta acerta bem mais que o aleatório', () => {
+  const g = fireGrid(32, 32);
+  fillTrees(g, 2, 2, 29, 29);
+  for (let y = 0; y < g.h; y++) for (let x = 16; x < g.w; x++) g.tree[g.idx(x, y)] = 0;
+  g.treeCount = 0;
+  g.recount();
+  const b = createBombs(31);
+  const N = 200;
+  let f = 0;
+  let r = 0;
+  for (let k = 0; k < N; k++) {
+    const a = pickForest(b, g);
+    if (g.tree[g.idx(a.x, a.y)] === 1) f++;
+    const c = pickRandom(b, g);
+    if (g.tree[g.idx(c.x, c.y)] === 1) r++;
+  }
+  assert(f / N > 0.7, `modo floresta só ${(f / N * 100).toFixed(0)}%`);
+  assert(r / N > 0.35 && r / N < 0.65, `modo aleatório ${(r / N * 100).toFixed(0)}% (esperado ~50%)`);
+  assert(f > r + 40, `floresta ${f} não é bem melhor que aleatório ${r}`);
 });
 check('evento lança N bombas escalonadas e impacta acendendo fogo', () => {
   const g = fireGrid(32, 32);

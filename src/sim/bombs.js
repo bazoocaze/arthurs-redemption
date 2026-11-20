@@ -37,40 +37,84 @@ export function bombsForEvent(elapsed) {
 }
 
 /**
- * Escolhe o alvo por amostragem: peso para floresta e para longe do último
- * impacto. Nunca devolve água (bomba na água = nada queima).
+ * Escolhe o alvo. Duas metades, sorteadas por bomba:
+ *
+ * - **aleatório** (`forestBias` = 0,5 → metade das vezes): tile de terra
+ *   uniforme, sem nenhum peso. É o que dá a sensação de "caiu onde quis".
+ * - **mira em floresta**: amostragem com peso para árvore e penalidade de
+ *   repetir o canto do último impacto.
+ *
+ * Misturar os dois é melhor que escolher um: só floresta torna o jogo
+ * previsível (toda bomba dói, o jogador aprende a ignorar a animação); só
+ * aleatório faz metade dos eventos cair no vazio e não ameaçar nada.
+ *
+ * Água nunca é alvo em nenhum dos modos: fogo não pega em água, então seria
+ * uma bomba desperdiçada sem o jogador entender por quê.
  */
-export function pickTarget(bombs, grid) {
-  let best = null;
-  let bestScore = -Infinity;
-  for (let k = 0; k < BOMB.sampleTries; k++) {
+export function pickTarget(bombs, grid, modo = 'auto') {
+  if (modo === 'auto') modo = bombs.rng() < BOMB.forestBias ? 'floresta' : 'aleatorio';
+  return modo === 'aleatorio' ? pickRandom(bombs, grid) : pickForest(bombs, grid);
+}
+
+/** Destino aleatório: terra uniforme, sem peso nenhum. */
+function pickRandom(bombs, grid) {
+  for (let k = 0; k < BOMB.randomTries; k++) {
+    const x = 2 + Math.floor(bombs.rng() * (grid.w - 4));
+    const y = 2 + Math.floor(bombs.rng() * (grid.h - 4));
+    if (grid.terrain[grid.idx(x, y)] !== TERRAIN.WATER) return { x, y };
+  }
+  return null;
+}
+
+/**
+ * Mira em floresta: procura **de fato** uma árvore, por rejeição.
+ *
+ * A primeira versão só pontuava 16 amostras aleatórias, e aí a mira herdava a
+ * densidade da floresta: com 3,5% de árvores no mapa ela acertava 24% das vezes
+ * (metade disso era o modo aleatório). "Mirar" tem que significar encontrar.
+ * Entre as árvores achadas, escolhe a mais longe do último impacto.
+ */
+function pickForest(bombs, grid) {
+  let arvore = null;
+  let arvoreDist = -1;
+  let amostra = null;
+  let amostraScore = -Infinity;
+
+  for (let k = 0; k < BOMB.forestTries; k++) {
     const x = 2 + Math.floor(bombs.rng() * (grid.w - 4));
     const y = 2 + Math.floor(bombs.rng() * (grid.h - 4));
     const i = grid.idx(x, y);
     if (grid.terrain[i] === TERRAIN.WATER) continue;
 
-    let score = bombs.rng() * 0.5;
-    if (grid.tree[i] === 1) score += 1.2; // prefere floresta
-    if (bombs.lastTarget) {
-      const dx = x - bombs.lastTarget.x;
-      const dy = y - bombs.lastTarget.y;
-      const d = Math.hypot(dx, dy);
-      score += Math.min(1, d / BOMB.avoidRadius) * 0.8; // longe do anterior
+    const d = bombs.lastTarget
+      ? Math.hypot(x - bombs.lastTarget.x, y - bombs.lastTarget.y)
+      : Infinity;
+
+    if (grid.tree[i] === 1 && d > arvoreDist) {
+      arvoreDist = d;
+      arvore = { x, y };
     }
-    if (score > bestScore) {
-      bestScore = score;
-      best = { x, y };
+
+    // fallback: se não houver árvore nenhuma no mapa (começo de jogo), ainda
+    // precisa devolver algo, e aí vale a lógica de longe do último impacto.
+    const score = bombs.rng() * 0.5 + (grid.tree[i] === 1 ? 1.6 : 0)
+      + Math.min(1, d / BOMB.avoidRadius) * 0.8;
+    if (score > amostraScore) {
+      amostraScore = score;
+      amostra = { x, y };
     }
   }
-  return best;
+  return arvore || amostra;
 }
+
+export { pickRandom, pickForest };
 
 /** Lança um evento de bombardeio (n bombas escalonadas). */
 export function launchEvent(bombs, grid) {
   const n = bombsForEvent(bombs.elapsed);
   const launched = [];
   for (let k = 0; k < n; k++) {
-    const target = pickTarget(bombs, grid);
+    const target = pickTarget(bombs, grid) || pickRandom(bombs, grid);
     if (!target) continue;
     bombs.lastTarget = target;
     const bomb = {
@@ -91,10 +135,6 @@ export function launchEvent(bombs, grid) {
   return launched;
 }
 
-/**
- * Avança o agendador e os voos. Ao pousar, ignita em raio e emite evento de
- * explosão para a camada visual.
- */
 export function updateBombs(bombs, grid, dt, seed = 0) {
   bombs.elapsed += dt;
 

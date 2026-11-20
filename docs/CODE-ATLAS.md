@@ -214,7 +214,9 @@ Estado em `createBombs(seed)`: RNG semeado, `nextEventAt`, lista `inFlight`,
 
 | peça | decisão |
 | --- | --- |
-| alvo | 16 amostras aleatórias; +1,2 se tem árvore, +0,8 proporcional à distância do último impacto; água é descartada |
+| alvo | moeda: 50% aleatório (terra uniforme) / 50% mira floresta (`BOMB.forestBias`) |
+| mira floresta | 32 tentativas procurando árvore; escolhe a mais longe do último impacto; se não achar, cai no fallback pontuado |
+| água | nunca é alvo nos dois modos (fogo não pega, seria bomba desperdiçada) |
 | voo (sim) | só tempo (`delay`, `dur`); nenhuma coordenada de tela |
 | voo (render) | arco em espaço de tela: entra pela lateral, `-sin(p·π)` de altura, rastro de 4 fantasmas, sombra no alvo crescendo |
 | impacto (render) | clarão, anel em expansão, poeira (partículas próprias em `render/bombs.js`), tremor de tela |

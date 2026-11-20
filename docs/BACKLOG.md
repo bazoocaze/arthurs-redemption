@@ -103,7 +103,7 @@ reconstruível) e a ameaça vem do tamanho do que a bomba acende.
 - [x] Raio de ignição 5 (medido: ~500 tiles queimados por impacto, ~6% da floresta)
 - [x] `src/sim/bombs.js`: agendador 15–30 s, primeira bomba em 12–22 s
 - [x] Bombas por evento = `min(1 + floor(elapsed/60), 5)`
-- [x] Alvo por amostragem: peso para floresta e para longe do último impacto; nunca em água
+- [x] Alvo: 50% destino aleatório / 50% mira floresta (`BOMB.forestBias`); nunca em água
 - [x] Voo visível: arco parabólico entrando pela lateral, rastro, sombra que cresce no alvo
 - [x] Impacto: clarão + anel em expansão + poeira + tremor de tela + ignição em raio
 - [x] Debug: tecla `B` solta uma bomba no cursor
@@ -111,9 +111,14 @@ reconstruível) e a ameaça vem do tamanho do que a bomba acende.
 
 ### Decisões que a medição forçou
 
-- **Alvo prefere floresta.** Bomba em terra vazia é evento nulo: o jogador vê a
-  animação e nada acontece. Amostragem de 16 tentativas com peso para tile com
-  árvore resolve (teste garante >60% em floresta).
+- **Metade mira, metade é aleatória.** Só mirar floresta torna o jogo
+  previsível (toda bomba dói); só aleatório faz metade dos eventos cair no vazio.
+  Medido em 600 alvos: mira acerta 71% num mapa de 46% de floresta (85% a 71% de
+  densidade, 39% a 5%).
+- **"Mirar" tem que encontrar.** A primeira versão só pontuava 16 amostras, e a
+  mira herdava a densidade do mapa (24% de acerto com 3,5% de árvores, metade
+  disso vindo do modo aleatório). Agora procura árvore por rejeição (32
+  tentativas) e escolhe a mais longe do último impacto.
 - **Peso contra repetir o canto.** Sem penalidade de distância ao último
   impacto, dois eventos seguidos empilham e o resto do mapa fica intocado.
 - **A sombra é o único aviso.** O design pede surpresa, mas sem sombra o jogador

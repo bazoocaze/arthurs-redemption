@@ -87,7 +87,8 @@ nem save.
 | Primeira bomba em 12–22 s | ✅ | tempo de plantar algo antes |
 | Eventos a cada 15–30 s | ✅ | agendador determinístico por seed |
 | Bombas por evento = 1 + 1/min, teto 5 | ✅ | `bombsForEvent` |
-| Alvo com peso para floresta e longe do último impacto | ✅ | nunca cai em água |
+| Alvo: 50% destino aleatório, 50% mira floresta | ✅ | `BOMB.forestBias`; nunca cai em água |
+| Mira em floresta procura árvore de fato, longe do último impacto | ✅ | 32 tentativas, escolhe a mais longe |
 | Voo visível com arco, rastro e faísca | ✅ | 1,1–1,7 s de voo |
 | Sombra no alvo que cresce | ✅ | única dica de onde cai |
 | Impacto: clarão, anel, poeira, tremor, ignição raio 5 | ✅ | ~500 tiles queimados por impacto |

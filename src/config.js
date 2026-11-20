@@ -117,7 +117,9 @@ export const BOMB = {
   staggerMin: 0, // atraso entre bombas do mesmo evento
   staggerMax: 0.5,
   avoidRadius: 14, // penalidade de alvo perto do último impacto
-  sampleTries: 16, // amostras por escolha de alvo
+  randomTries: 24, // tentativas para achar terra no modo aleatório
+  forestTries: 32, // tentativas para achar uma árvore no modo floresta
+  forestBias: 0.5, // chance de mirar floresta; o resto é destino aleatório
   shakeMag: 7, // px de tremor
   shakeSeconds: 0.3,
   blastSeconds: 0.5,
