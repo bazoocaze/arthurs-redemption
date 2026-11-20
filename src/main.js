@@ -1,6 +1,6 @@
 // Bootstrap e loop principal. Aqui vive a ordem de update/render: simulação não
 // conhece pixels, render não conhece regras.
-import { COLORS, TIME, BRUSH, FIRE } from './config.js';
+import { COLORS, TIME, BRUSH, FIRE, BOMB } from './config.js';
 import { generateWorld } from './generator.js';
 import { Camera } from './camera.js';
 import { createInput } from './input.js';
@@ -11,7 +11,12 @@ import { drawBrush } from './render/overlay.js';
 import { createFx, updateFx, drawFx, spawnSteam } from './render/fire.js';
 import { applyBrush, strokePath } from './sim/paint.js';
 import { stepFire, igniteRadius } from './sim/fire.js';
+import { createBombs, updateBombs, dropBomb, bombsForEvent } from './sim/bombs.js';
+import {
+  createBombFx, spawnBlast, updateBombFx, drawBombs, drawBombFx, bombFxActive,
+} from './render/bombs.js';
 import { createUi } from './ui.js';
+import { hash2 } from './rng.js';
 
 const params = new URLSearchParams(location.search);
 const DEBUG = params.get('debug') === '1';
@@ -24,6 +29,8 @@ const ctx = canvas.getContext('2d', { alpha: false });
 
 const { grid } = generateWorld(SEED);
 const fx = createFx();
+const bombs = createBombs(SEED);
+const bombFx = createBombFx();
 const camera = new Camera();
 const state = {
   grid,
@@ -60,6 +67,13 @@ function drainEvents() {
     const e = ev[k];
     if (e.type === 'spray') spawnSteam(fx, e.x, e.y, 1);
     else if (e.type === 'extinguish') spawnSteam(fx, e.x, e.y, 5);
+    else if (e.type === 'explosion') {
+      spawnBlast(bombFx, e.x, e.y);
+      shake.t = BOMB.shakeSeconds;
+      shake.x = (hash2(e.x, e.y, 5) - 0.5) * 2 * BOMB.shakeMag;
+      shake.y = (hash2(e.y, e.x, 9) - 0.5) * 2 * BOMB.shakeMag;
+      ui.updateHud();
+    }
   }
   ev.length = 0;
 }
@@ -96,6 +110,12 @@ const hooks = {
     state.tool = tool;
     ui.refreshTool();
     dirty = true;
+  },
+  /** Debug/teste: solta uma bomba no tile. */
+  bomb(x, y) {
+    dropBomb(bombs, grid, x, y, SEED);
+    dirty = true;
+    return bombs.inFlight.length;
   },
   /** Debug/teste: acende fogo em disco. Em M5 quem chama é a bomba. */
   ignite(x, y, radius = 4) {
@@ -183,7 +203,9 @@ function updateDebug(dt) {
     `tile ${h ? `${h.x},${h.y}` : '—'}`,
     `árvores ${grid.treeCount}/${grid.landTotal} (${(grid.coverage() * 100).toFixed(1)}%)`,
     `água ${grid.waterCount} tiles · vol ${grid.waterTotal.toFixed(0)}`,
-    `fogo ${grid.burningCount} focos · cinza ${grid.ashCount} · fumaça ${fx.smoke.length}`,
+    `fogo ${grid.burningCount} focos · cinza ${grid.ashCount} · fumaça ${fx.smoke.length} · vapor ${fx.steam.length}`,
+    `bombas ${bombs.inFlight.length} em voo · eventos ${bombs.events} · próximo em ${Math.max(0, bombs.nextEventAt - bombs.elapsed).toFixed(0)}s`,
+    `no próximo evento: ${bombsForEvent(bombs.elapsed)} bomba(s)`,
     `seed ${SEED}`,
     `frames ${stats.frames} · pulados ${stats.framesSkipped} (redraw ${allPct}% no total)`,
   ].join('\n');
@@ -208,7 +230,8 @@ function inputFrame() {
 
 // Motivo de frame só visual (fogo, fumaça, umidade, shimmer da água).
 function animFrame() {
-  if (grid.burningCount > 0 || fx.smoke.length > 0 || grid.wetTiles.length > 0) return true;
+  if (grid.burningCount > 0 || fx.smoke.length > 0 || fx.steam.length > 0) return true;
+  if (grid.wetTiles.length > 0 || bombFxActive(bombs, bombFx)) return true;
   const shimmer = Math.floor(time * TIME.waterShimmerHz);
   if (shimmer !== lastShimmer) {
     lastShimmer = shimmer;
@@ -233,23 +256,45 @@ function updateFire(dt) {
   }
   if (fireAcc > FIRE_DT * 8) fireAcc = 0;
   updateFx(fx, grid, dt);
+  updateBombs(bombs, grid, dt, SEED);
+  updateBombFx(bombFx, dt);
   // NÃO marcar `dirty` aqui: o fogo é animação, não entrada. Quem pede o frame é
   // `animFrame()`, que obedece ao teto de `TIME.animHz`.
 }
+
+const shake = { t: 0, x: 0, y: 0 };
 
 function render() {
   const t0 = performance.now();
   ctx.fillStyle = COLORS.bg;
   ctx.fillRect(0, 0, camera.viewW, camera.viewH);
+
+  // Tremor: decai em `BOMB.shakeSeconds`. Aplicado depois do fundo (que precisa
+  // cobrir a tela inteira) e antes de tudo que é cena.
+  let sx = 0;
+  let sy = 0;
+  if (shake.t > 0) {
+    const k = shake.t / BOMB.shakeSeconds;
+    sx = shake.x * k;
+    sy = shake.y * k;
+    shake.t = Math.max(0, shake.t - Math.max(0.016, lastDt));
+  }
+  if (sx || sy) {
+    ctx.save();
+    ctx.translate(sx, sy);
+  }
   const t1 = performance.now();
   stats.drawnTiles = drawTerrain(ctx, grid, camera, time);
   const t2 = performance.now();
   stats.drawnTrees = drawTrees(ctx, grid, camera);
   drawFx(ctx, grid, camera, time, fx);
+  drawBombs(ctx, bombs, camera, time);
+  drawBombFx(ctx, camera, bombFx);
   const t3 = performance.now();
   if (state.hover && state.tool !== 'pan') {
     drawBrush(ctx, grid, camera, state.hover.x, state.hover.y, state.brushRadius);
   }
+  if (sx || sy) ctx.restore();
   const t4 = performance.now();
   stats.terrainMs = t2 - t1;
   stats.treesMs = t3 - t2;
@@ -258,10 +303,12 @@ function render() {
 }
 
 let lastTs = 0;
+let lastDt = 0.016;
 let lastRenderTs = -1e9;
 function frame(ts) {
   const dt = lastTs ? Math.min((ts - lastTs) / 1000, TIME.maxDt) : 0;
   lastTs = ts;
+  lastDt = dt;
   time += dt;
 
   input.update(dt);
@@ -305,6 +352,10 @@ window.addEventListener('keydown', (e) => {
     hooks.ignite(state.hover.x, state.hover.y, 4);
     return;
   }
+  if ((e.key === 'b' || e.key === 'B') && dbgMode === 2 && state.hover) {
+    hooks.bomb(state.hover.x, state.hover.y);
+    return;
+  }
   if (e.key !== '`' || e.ctrlKey || e.metaKey) return;
   e.preventDefault();
   dbgMode = (dbgMode + 1) % 3;
@@ -316,4 +367,4 @@ applyDbgMode();
 requestAnimationFrame(frame);
 
 // Hook de inspeção manual no console (usado pelos probes headless).
-window.__game = { grid, camera, state, stats, hooks, fx, seed: SEED };
+window.__game = { grid, camera, state, stats, hooks, fx, bombs, bombFx, seed: SEED };

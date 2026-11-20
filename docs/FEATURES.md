@@ -7,10 +7,10 @@ Legenda: ✅ funcionando · 🧪 implementado mas sem verificação visual · �
 
 ## Estado atual
 
-**M1 + M2 + M3 + M3b + M4 concluídos** — mundo isométrico navegável, floresta de
-4 espécies, pintura de água que drena o rio, e **fogo** com propagação
-balanceada, spray para apagar e cinzas que voltam a ser terra. Ainda não há
-bombas, áudio nem save.
+**M1 + M2 + M3 + M3b + M4 + M5 concluídos** — mundo isométrico navegável,
+floresta de 4 espécies, pintura de água que drena o rio, fogo balanceado com
+spray e cinzas, e **bombardeio** com voo visível e explosão. Ainda não há áudio
+nem save.
 
 ## Infra / projeto
 
@@ -78,6 +78,19 @@ bombas, áudio nem save.
 | Pílula 🔥 no HUD com número de focos | ✅ | pisca enquanto há fogo |
 | 💧 contextual: apaga / molha / cava lago | ✅ | a dica muda com a ferramenta |
 
+## Bombardeio
+
+| Feature | Status | Observações |
+| --- | --- | --- |
+| Primeira bomba em 12–22 s | ✅ | tempo de plantar algo antes |
+| Eventos a cada 15–30 s | ✅ | agendador determinístico por seed |
+| Bombas por evento = 1 + 1/min, teto 5 | ✅ | `bombsForEvent` |
+| Alvo com peso para floresta e longe do último impacto | ✅ | nunca cai em água |
+| Voo visível com arco, rastro e faísca | ✅ | 1,1–1,7 s de voo |
+| Sombra no alvo que cresce | ✅ | única dica de onde cai |
+| Impacto: clarão, anel, poeira, tremor, ignição raio 5 | ✅ | ~500 tiles queimados por impacto |
+| `B` solta bomba no cursor (debug) | ✅ | só com `?debug=1` |
+
 ## HUD
 
 | Feature | Status | Observações |
@@ -111,7 +124,6 @@ Otimizações que produziram isso: `Path2D.rect` em espaço de tile com matriz i
 
 | Feature | Status | Milestone |
 | --- | --- | --- |
-| Bombardeio | ❌ | M5 |
 | Áudio procedural | ❌ | M6 |
 | Save/retomada (localStorage) | ❌ | M7 |
 | Service worker (offline) | ❌ | M7 |

@@ -62,7 +62,9 @@ Regra de ouro: **a simulação não conhece pixels; o render não conhece regras
 | `src/grove.js` | ✅ | detecção de bloco NxN da mesma espécie (puro, testável) | canvas |
 | `src/sim/paint.js` | ✅ | plantar, alagar, brush, trilha, drenagem do rio | render |
 | `src/sim/fire.js` | ✅ | ignição, propagação (R0), spray, cinza, umidade | render |
-| `src/render/fire.js` | ✅ | chamas (sprites + halo), fumaça com orçamento | simulação |
+| `src/render/fire.js` | ✅ | chamas (sprites + halo), fumaça, vapor | simulação |
+| `src/sim/bombs.js` | ✅ | agendador, escolha de alvo, voo, impacto | render |
+| `src/render/bombs.js` | ✅ | bomba em voo (arco/rastro/sombra), explosão | simulação |
 | `src/ui.js` | ✅ | palheta, HUD, atalhos | simulação |
 | `src/sim/fire.js` | ⏳ | ignição, propagação, extinção, cinzas, decaimento | áudio/partículas |
 | `src/sim/bombs.js` | ⏳ | agendador de eventos, alvos, voo, impacto | desenho das partículas |
@@ -200,6 +202,27 @@ ferramenta cava lago — daí a dica do HUD mudar com a ferramenta.
 | chamas com `stride` acima de 260 focos | num incêndio grande a diferença é nula |
 | árvore em chamas não desenha a copa verde | vira tora escura batchada num path |
 
+## 5c. Fluxo do bombardeio (`sim/bombs.js`)
+
+Estado em `createBombs(seed)`: RNG semeado, `nextEventAt`, lista `inFlight`,
+`lastTarget`, contadores. Cada `updateBombs`:
+
+1. Se `elapsed >= nextEventAt`: lança `bombsForEvent(elapsed)` bombas e agenda o
+   próximo evento (15–30 s). Bombas do mesmo evento entram com `delay` aleatório.
+2. Cada bomba em voo acumula `t`; ao chegar em `dur`, **impacta**: `igniteRadius`
+   no alvo (raio 5) e empurra `{type:'explosion'}` em `grid.events`.
+
+| peça | decisão |
+| --- | --- |
+| alvo | 16 amostras aleatórias; +1,2 se tem árvore, +0,8 proporcional à distância do último impacto; água é descartada |
+| voo (sim) | só tempo (`delay`, `dur`); nenhuma coordenada de tela |
+| voo (render) | arco em espaço de tela: entra pela lateral, `-sin(p·π)` de altura, rastro de 4 fantasmas, sombra no alvo crescendo |
+| impacto (render) | clarão, anel em expansão, poeira (partículas próprias em `render/bombs.js`), tremor de tela |
+
+O tremor é aplicado em `main.js` como `ctx.translate` depois do fundo (que
+precisa cobrir a tela toda) e antes de toda a cena, decaindo em
+`BOMB.shakeSeconds`.
+
 ## 6. Tunables (`config.js`)
 
 | Chave | Valor inicial | Nota |
@@ -243,6 +266,12 @@ ferramenta cava lago — daí a dica do HUD mudar com a ferramenta.
 | `WATER.sprayCost` | 1 | volume por spray encostado no rio |
 | `WATER.sprayDistFactor` | 0.3 | custo de transporte do spray |
 | `WATER.sprayMaxCost` | 5 | teto do custo de spray |
+| `BOMB.firstDelayMin/Max` | 12 / 22 s | tempo até a primeira bomba |
+| `BOMB.intervalMin/Max` | 15 / 30 s | intervalo entre eventos |
+| `BOMB.maxPerEvent` | 5 | teto de bombas simultâneas |
+| `BOMB.eventRampSeconds` | 60 | +1 bomba por evento a cada minuto |
+| `BOMB.igniteRadius` | 5 | raio de ignição (é o "quanto dói") |
+| `BOMB.avoidRadius` | 14 | raio de penalidade do último impacto |
 | `TIME.animHz` | 30 | teto de redesenho só-animação (entrada nunca é limitada) |
 | `RENDER.lodZoom` | 0.45 | abaixo disso árvores viram manchas |
 | `RENDER.groveMax` | 3 | maior bloco agrupado |

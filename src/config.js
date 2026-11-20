@@ -98,6 +98,28 @@ export const FIRE = {
 /** Chance de propagação por segundo, derivada do R0 alvo. */
 export const FIRE_CHANCE = FIRE.r0Target / (FIRE.neighborsAtDense * FIRE.burnTime);
 
+// Bombardeio. O raio de ignição é o botão de "quanto dói" (ver FIRE):
+// ~78 focos num raio 5 rendem ~500 tiles queimados por impacto, ~6% da floresta.
+export const BOMB = {
+  firstDelayMin: 12, // s até a primeira bomba (dá tempo de plantar algo)
+  firstDelayMax: 22,
+  intervalMin: 15, // s entre eventos
+  intervalMax: 30,
+  maxPerEvent: 5,
+  eventRampSeconds: 60, // +1 bomba por evento a cada minuto
+  igniteRadius: 5,
+  flightMin: 1.1, // s de voo visível
+  flightMax: 1.7,
+  staggerMin: 0, // atraso entre bombas do mesmo evento
+  staggerMax: 0.5,
+  avoidRadius: 14, // penalidade de alvo perto do último impacto
+  sampleTries: 16, // amostras por escolha de alvo
+  shakeMag: 7, // px de tremor
+  shakeSeconds: 0.3,
+  blastSeconds: 0.5,
+  dustPuffs: 7, // nuvens de poeira por impacto
+};
+
 export const RENDER = {
   lodZoom: 0.45, // abaixo disso, árvores viram manchas por espécie (batch)
   groveMax: 3, // maior bloco agrupado (3x3)
@@ -116,6 +138,8 @@ export const COLORS = {
   // fogo: base escura, meio laranja, núcleo claro (3 paths por frame)
   fire: ['#b03a12', '#f2812c', '#ffd05a'],
   charred: '#241d16', // copa consumida pelo fogo
+  bomb: '#2a2b30',
+  bombHi: '#6f7480',
   smoke: 'rgba(26, 22, 18, 0.42)',
   wetTint: 'rgba(120, 160, 190, 0.13)',
   highlightFill: 'rgba(255, 244, 214, 0.16)',

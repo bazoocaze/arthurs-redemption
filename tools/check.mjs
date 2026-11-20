@@ -12,6 +12,8 @@ import { WATER, FIRE, FIRE_CHANCE } from '../src/config.js';
 import {
   ignite, igniteRadius, stepFire, soak, sprayTile, sprayBrush, extinguish, expectedR0,
 } from '../src/sim/fire.js';
+import { createBombs, updateBombs, launchEvent, pickTarget, bombsForEvent, dropBomb } from '../src/sim/bombs.js';
+import { BOMB } from '../src/config.js';
 
 let failures = 0;
 function check(name, fn) {
@@ -439,6 +441,108 @@ check('umidade seca depois de wetSeconds', () => {
   for (let t = 0; t < ticks; t++) stepFire(g, 1 / FIRE.tickRate, 1);
   assert(g.wet[g.idx(6, 6)] === 0, 'umidade deveria ter secado');
   assert(g.wetTiles.length === 0, 'lista de molhados deveria estar vazia');
+});
+
+
+console.log('bombardeio');
+check('bombas por evento: 1 + 1 por minuto, com teto', () => {
+  assert(bombsForEvent(0) === 1, `t=0 -> ${bombsForEvent(0)}`);
+  assert(bombsForEvent(59) === 1, `t=59 -> ${bombsForEvent(59)}`);
+  assert(bombsForEvent(60) === 2, `t=60 -> ${bombsForEvent(60)}`);
+  assert(bombsForEvent(240) === 5, `t=240 -> ${bombsForEvent(240)}`);
+  assert(bombsForEvent(9999) === BOMB.maxPerEvent, `teto ${bombsForEvent(9999)}`);
+});
+check('alvo nunca cai na água', () => {
+  const g = fireGrid(32, 32);
+  fillTrees(g, 2, 2, 29, 29);
+  // rio vertical
+  for (let y = 0; y < g.h; y++) {
+    for (let x = 15; x < 18; x++) {
+      const i = g.idx(x, y);
+      g.terrain[i] = TERRAIN.WATER;
+      g.tree[i] = 0;
+    }
+  }
+  const b = createBombs(77);
+  for (let k = 0; k < 40; k++) {
+    const t = pickTarget(b, g);
+    assert(t, 'deveria achar alvo em terra');
+    assert(g.terrain[g.idx(t.x, t.y)] !== TERRAIN.WATER, `alvo na água em ${t.x},${t.y}`);
+  }
+});
+check('alvo prefere floresta a terra vazia', () => {
+  const g = fireGrid(32, 32);
+  fillTrees(g, 2, 2, 29, 29);
+  // metade direita vazia
+  for (let y = 0; y < g.h; y++) for (let x = 16; x < g.w; x++) g.tree[g.idx(x, y)] = 0;
+  g.treeCount = 0;
+  g.recount();
+  const b = createBombs(123);
+  let naFloresta = 0;
+  const N = 200;
+  for (let k = 0; k < N; k++) {
+    const t = pickTarget(b, g);
+    if (g.tree[g.idx(t.x, t.y)] === 1) naFloresta++;
+  }
+  const frac = naFloresta / N;
+  assert(frac > 0.6, `só ${(frac * 100).toFixed(0)}% dos alvos caíram em floresta`);
+});
+check('evento lança N bombas escalonadas e impacta acendendo fogo', () => {
+  const g = fireGrid(32, 32);
+  fillTrees(g, 2, 2, 29, 29);
+  const b = createBombs(5);
+  b.elapsed = 0;
+  const launched = launchEvent(b, g);
+  assert(launched.length === 1, `esperava 1 bomba, veio ${launched.length}`);
+  assert(b.inFlight.length === 1, 'bomba não entrou em voo');
+  // avança até o impacto
+  let t = 0;
+  while (b.inFlight.length > 0 && t < 20) {
+    updateBombs(b, g, 0.1, 5);
+    t += 0.1;
+  }
+  assert(b.impacts === 1, `esperava 1 impacto, veio ${b.impacts}`);
+  assert(g.burningCount > 0, 'impacto não acendeu fogo');
+  assert(g.events.some((e) => e.type === 'explosion'), 'sem evento de explosão');
+});
+check('agendador dispara sozinho depois do primeiro atraso', () => {
+  const g = fireGrid(32, 32);
+  fillTrees(g, 2, 2, 29, 29);
+  const b = createBombs(31);
+  const primeiro = b.nextEventAt;
+  assert(primeiro >= BOMB.firstDelayMin && primeiro <= BOMB.firstDelayMax, `primeiro evento em ${primeiro}`);
+  for (let t = 0; t < primeiro + 0.5; t += 0.25) updateBombs(b, g, 0.25, 31);
+  assert(b.events === 1, `esperava 1 evento, veio ${b.events}`);
+  assert(b.nextEventAt > b.elapsed, 'próximo evento deveria estar no futuro');
+});
+check('mesma seed => mesmos alvos (determinístico)', () => {
+  const run = () => {
+    const g = fireGrid(32, 32);
+    fillTrees(g, 2, 2, 29, 29);
+    const b = createBombs(9);
+    b.elapsed = 120; // 3 bombas por evento
+    const l = launchEvent(b, g);
+    return l.map((x) => `${x.tx},${x.ty}`).join('|');
+  };
+  assert(run() === run(), 'alvos das bombas não são determinísticos');
+});
+check('dropBomb cai no tile pedido e ignita em raio', () => {
+  const g = fireGrid(32, 32);
+  fillTrees(g, 2, 2, 29, 29);
+  const b = createBombs(3);
+  dropBomb(b, g, 16, 16, 3);
+  let t = 0;
+  while (b.inFlight.length > 0 && t < 10) {
+    updateBombs(b, g, 0.1, 3);
+    t += 0.1;
+  }
+  assert(b.impacts === 1, 'não impactou');
+  assert(g.state[g.idx(16, 16)] === STATE.BURNING, 'centro do impacto deveria queimar');
+  let focos = 0;
+  for (let y = 12; y <= 20; y++) for (let x = 12; x <= 20; x++) {
+    if (g.state[g.idx(x, y)] !== STATE.IDLE) focos++;
+  }
+  assert(focos >= 20, `raio de ignição pequeno demais: ${focos} focos`);
 });
 
 console.log(failures ? `\n${failures} falha(s)` : '\ntudo ok');

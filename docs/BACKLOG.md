@@ -98,16 +98,28 @@ Conclusão: **o "quanto assusta" é o raio de ignição da bomba (M5), não o R0
 R0 fica em 0,85 para o incêndio ter teto (nunca apocalíptico, sempre
 reconstruível) e a ameaça vem do tamanho do que a bomba acende.
 
-## M5 — Bombardeio (próximo)
+## M5 — Bombardeio ✅
 
-- [ ] Raio de ignição ~5 (ver tabela acima: é o que define a ameaça)
-- [ ] `src/sim/bombs.js`: agendador 15–30s aleatório
-- [ ] Bombas por evento = `min(1 + floor(elapsed/60), 5)`
-- [ ] Escolha de alvo: aleatório, com penalidade em raio ao redor do último foco
-- [ ] Voo visível: arco parabólico cruzando a tela, escala/sombra crescentes até o impacto
-- [ ] Impacto: explosão (partículas + flash + shake leve) + ignição em raio pequeno
-- [ ] Áudio da bomba: whoosh na aproximação, boom no impacto
+- [x] Raio de ignição 5 (medido: ~500 tiles queimados por impacto, ~6% da floresta)
+- [x] `src/sim/bombs.js`: agendador 15–30 s, primeira bomba em 12–22 s
+- [x] Bombas por evento = `min(1 + floor(elapsed/60), 5)`
+- [x] Alvo por amostragem: peso para floresta e para longe do último impacto; nunca em água
+- [x] Voo visível: arco parabólico entrando pela lateral, rastro, sombra que cresce no alvo
+- [x] Impacto: clarão + anel em expansão + poeira + tremor de tela + ignição em raio
+- [x] Debug: tecla `B` solta uma bomba no cursor
+- [x] 7 testes novos (40 no total): fórmula por evento, alvo fora da água, preferência por floresta, impacto, agendador, determinismo
 
+### Decisões que a medição forçou
+
+- **Alvo prefere floresta.** Bomba em terra vazia é evento nulo: o jogador vê a
+  animação e nada acontece. Amostragem de 16 tentativas com peso para tile com
+  árvore resolve (teste garante >60% em floresta).
+- **Peso contra repetir o canto.** Sem penalidade de distância ao último
+  impacto, dois eventos seguidos empilham e o resto do mapa fica intocado.
+- **A sombra é o único aviso.** O design pede surpresa, mas sem sombra o jogador
+  não tem como reagir; ela cresce e escurece enquanto a bomba desce.
+
+## M6 — Áudio procedural
 ## M6 — Áudio procedural
 
 - [ ] `src/audio.js`: contexto WebAudio criado no primeiro gesto do usuário (política de autoplay)
