@@ -1,0 +1,11 @@
+# notas pessoais / brainstorm (não versionado por decisão do autor)
+brainstorm.txt
+
+# pi agent scratch
+.pi/tasks/
+.pi/*.jsonl
+
+# sistema
+.DS_Store
+*.log
+node_modules/
