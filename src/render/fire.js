@@ -37,13 +37,17 @@ export function spawnSteam(fx, x, y, quantidade = 2) {
     fx.steam.push({
       wx: x + (h1 - 0.5) * 0.6,
       wy: y + (h2 - 0.5) * 0.6,
-      vx: (h1 - 0.5) * 26,
-      rise: 0,
-      vrise: 34 + h2 * 30,
-      drag: 1.6,
+      // Deslocamento em px de TELA, não em tiles: em iso um delta de mundo vira
+      // diagonal na tela, então vento e empuxo são declarados no que se vê.
+      dx: 0,
+      dy: 0,
+      vdx: (h1 - 0.5) * 18,
+      vdy: -(58 + h2 * 34),
+      ay: -34, // freada: sobe rápido e perde força
       t: 0,
-      life: 0.5 + h1 * 0.4,
-      size: 0.3 + h2 * 0.22,
+      life: 0.45 + h1 * 0.35,
+      size: 0.36 + h2 * 0.22,
+      grow: 1.5,
     });
   }
 }
@@ -107,38 +111,66 @@ function buildFlames(fx) {
   }
 }
 
-function steamSprite(fx) {
-  if (fx.steamSprite) return fx.steamSprite;
-  const size = 32;
+/**
+ * Sprite de nuvem montado com blobs sobrepostos.
+ *
+ * Um único radial-gradient desenha um **círculo translúcido** — era por isso que
+ * fumaça e vapor pareciam a mesma coisa. Sobrepor 4–6 blobs em posições
+ * diferentes dá silhueta irregular, que é o que o olho lê como "nuvem".
+ */
+function blobSprite(blobs, cores, size) {
   const c = document.createElement('canvas');
   c.width = size;
   c.height = size;
   const g = c.getContext('2d');
-  const grad = g.createRadialGradient(size / 2, size / 2, 1, size / 2, size / 2, size / 2);
-  grad.addColorStop(0, 'rgba(255, 255, 255, 0.92)');
-  grad.addColorStop(0.45, 'rgba(232, 245, 252, 0.5)');
-  grad.addColorStop(1, 'rgba(206, 228, 240, 0)');
-  g.fillStyle = grad;
-  g.fillRect(0, 0, size, size);
-  fx.steamSprite = c;
+  for (let k = 0; k < blobs.length; k++) {
+    const r = blobs[k][2] * size;
+    const px = blobs[k][0] * size;
+    const py = blobs[k][1] * size;
+    const grad = g.createRadialGradient(px, py, r * 0.12, px, py, r);
+    grad.addColorStop(0, cores[0]);
+    grad.addColorStop(0.55, cores[1]);
+    grad.addColorStop(1, cores[2]);
+    g.fillStyle = grad;
+    g.beginPath();
+    g.arc(px, py, r, 0, Math.PI * 2);
+    g.fill();
+  }
   return c;
 }
 
+/** Vapor: branco-azulado, compacto, brilha no centro. */
+function steamSprite(fx) {
+  if (fx.steamSprite) return fx.steamSprite;
+  fx.steamSprite = blobSprite(
+    [
+      [0.46, 0.48, 0.26],
+      [0.58, 0.44, 0.21],
+      [0.48, 0.6, 0.22],
+      [0.5, 0.5, 0.15],
+    ],
+    ['rgba(255, 255, 255, 0.62)', 'rgba(226, 244, 252, 0.30)', 'rgba(198, 226, 242, 0)'],
+    48,
+  );
+  return fx.steamSprite;
+}
+
+/** Fuligem: escura, grande, silhueta esfarrapada. */
 function smokeSprite(fx) {
   if (fx.sprite) return fx.sprite;
-  const size = 48;
-  const c = document.createElement('canvas');
-  c.width = size;
-  c.height = size;
-  const g = c.getContext('2d');
-  const grad = g.createRadialGradient(size / 2, size / 2, 2, size / 2, size / 2, size / 2);
-  grad.addColorStop(0, 'rgba(176, 168, 156, 0.5)');
-  grad.addColorStop(0.5, 'rgba(140, 132, 122, 0.26)');
-  grad.addColorStop(1, 'rgba(110, 104, 96, 0)');
-  g.fillStyle = grad;
-  g.fillRect(0, 0, size, size);
-  fx.sprite = c;
-  return c;
+  fx.sprite = blobSprite(
+    [
+      [0.36, 0.5, 0.26],
+      [0.62, 0.44, 0.24],
+      [0.5, 0.62, 0.25],
+      [0.44, 0.36, 0.19],
+      [0.68, 0.6, 0.17],
+      [0.5, 0.5, 0.2],
+    ],
+    ['rgba(44, 39, 34, 0.34)', 'rgba(52, 46, 40, 0.20)', 'rgba(62, 55, 47, 0)'],
+    64,
+  );
+  return fx.sprite;
 }
 
 /**
@@ -169,10 +201,11 @@ export function updateFx(fx, grid, dt) {
 }
 
 /**
- * Integra uma lista de partículas. Campos: `wx/wy` (tile), `rise` (px de mundo
- * subindo), `vx/vrise`, `drag` (negativo = acelera pra cima), `t/life/size`.
- * Manter os nomes iguais entre fumaça e vapor já custou um bug de NaN (spawn
- * gravava `wx/wy`, update lia `x/y`, o desenho saía com NaN e nada aparecia).
+ * Integra uma lista de partículas **em espaço de tela**.
+ *
+ * `wx/wy` é a origem no mundo (tile); `dx/dy` é o quanto ela já andou em px de
+ * tela. Antes o deslocamento era `wx += vx`, e em iso mover X no mundo é andar
+ * na diagonal da tela — daí a fumaça subindo torta.
  */
 function advance(list, dt) {
   for (let k = 0; k < list.length; ) {
@@ -183,9 +216,9 @@ function advance(list, dt) {
       list.pop();
       continue;
     }
-    p.wx += p.vx * dt;
-    p.rise += p.vrise * dt;
-    p.vrise -= p.drag * dt;
+    p.dx += p.vdx * dt;
+    p.dy += p.vdy * dt;
+    if (p.ay) p.vdy += p.ay * dt;
     k++;
   }
 }
@@ -202,13 +235,16 @@ function spawnSmoke(fx, grid) {
   fx.smoke.push({
     wx: x + (h1 - 0.5) * 0.5,
     wy: y + (h2 - 0.5) * 0.5,
-    vx: (h1 - 0.5) * 14,
-    rise: 0,
-    vrise: 16 + h2 * 18,
-    drag: -6, // acelera para cima
+    dx: 0,
+    dy: 0,
+    // vento constante (para cima e à direita NA TELA) com jitter por partícula
+    vdx: FIRE.windX * (0.7 + h1 * 0.6),
+    vdy: FIRE.windY * (0.7 + h2 * 0.6),
+    ay: -6, // acelera um pouco: fumaça quente sobe
     t: 0,
     life: FIRE.smokeLifeMin + h1 * (FIRE.smokeLifeMax - FIRE.smokeLifeMin),
-    size: 0.7 + h2 * 0.7,
+    size: 0.95 + h2 * 0.75,
+    grow: 1.6,
   });
 }
 
@@ -235,10 +271,11 @@ export function drawFx(ctx, grid, cam, time, fx) {
     for (let k = 0; k < fx.smoke.length; k++) {
       const p = fx.smoke[k];
       const lifeT = p.t / p.life;
-      const alpha = (1 - lifeT) * (lifeT < 0.15 ? lifeT / 0.15 : 1) * 0.9;
-      const size = (TILE_W * 0.62 * p.size * (0.7 + lifeT * 1.2)) * z;
-      const sx = baseX(cam, p.wx, p.wy);
-      const sy = baseY(cam, p.wx, p.wy) - p.rise * z * 0.5;
+      // entra rápido, sai devagar: fuligem densa no começo da vida
+      const alpha = Math.min(1, lifeT * 7) * (1 - lifeT * lifeT) * 0.95;
+      const size = TILE_W * p.size * (0.55 + lifeT * p.grow) * z;
+      const sx = baseX(cam, p.wx, p.wy) + p.dx * z;
+      const sy = baseY(cam, p.wx, p.wy) + p.dy * z;
       if (sx + size < 0 || sx - size > cam.viewW || sy + size < 0 || sy - size > cam.viewH) continue;
       ctx.globalAlpha = alpha;
       ctx.drawImage(sprite, sx - size / 2, sy - size / 2, size, size);
@@ -275,11 +312,11 @@ export function drawFx(ctx, grid, cam, time, fx) {
     for (let k = 0; k < fx.steam.length; k++) {
       const p = fx.steam[k];
       const lifeT = p.t / p.life;
-      const size = TILE_W * p.size * (0.6 + lifeT * 1.3) * z;
-      const sx = baseX(cam, p.wx, p.wy);
-      const sy = baseY(cam, p.wx, p.wy) - p.rise * z * 0.5;
+      const size = TILE_W * p.size * (0.5 + lifeT * p.grow) * z;
+      const sx = baseX(cam, p.wx, p.wy) + p.dx * z;
+      const sy = baseY(cam, p.wx, p.wy) + p.dy * z;
       if (sx + size < 0 || sx - size > cam.viewW || sy + size < 0 || sy - size > cam.viewH) continue;
-      ctx.globalAlpha = (1 - lifeT) * 0.72;
+      ctx.globalAlpha = (1 - lifeT) * (1 - lifeT) * 1.0; // some rápido
       ctx.drawImage(sp, sx - size / 2, sy - size / 2, size, size);
     }
     ctx.globalAlpha = 1;

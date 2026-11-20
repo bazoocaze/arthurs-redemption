@@ -223,6 +223,25 @@ O tremor é aplicado em `main.js` como `ctx.translate` depois do fundo (que
 precisa cobrir a tela toda) e antes de toda a cena, decaindo em
 `BOMB.shakeSeconds`.
 
+## 5d. Partículas (`render/fire.js`)
+
+Fumaça e vapor compartilham a lista de campos e o integrador `advance()`, mas
+são desenhados para **não se confundirem**:
+
+| | fumaça (fuligem) | vapor |
+| --- | --- | --- |
+| sprite | 6 blobs escuros sobrepostos, silhueta esfarrapada | 4 blobs branco-azulados, compacto |
+| cor | `rgba(44,39,34,…)` | `rgba(255,255,255,…)` |
+| tamanho | 0,95–1,7 tile, expande 1,6× | 0,36–0,58 tile, expande 1,5× |
+| movimento | vento (`windX 11`, `windY −26` px/s) | sobe forte (−58 a −92 px/s) e freia |
+| vida | 2,2–4,5 s | 0,45–0,8 s |
+| alpha | entra rápido, sai com `1−t²` | `(1−t)²`, some rápido |
+
+**Deslocamento em px de TELA, não em tiles.** `wx/wy` é a origem no mundo;
+`dx/dy` acumula `vdx/vdy` em pixels. Antes era `wx += vx`, e em iso mover X no
+mundo é andar na diagonal da tela — a fumaça subia torta. Vento e empuxo agora
+são exatamente o que o jogador vê.
+
 ## 6. Tunables (`config.js`)
 
 | Chave | Valor inicial | Nota |
@@ -261,6 +280,7 @@ precisa cobrir a tela toda) e antes de toda a cena, decaindo em
 | `FIRE.wetSeconds` | 8 s | duração do aceiro molhado |
 | `FIRE.wetSpreadMul` | 0.1 | chance de pegar em tile molhado |
 | `FIRE.ashSeconds` | 60 s | cinza → terra replantável |
+| `FIRE.windX/windY` | 11 / −26 px/s | vento da fumaça (espaço de tela) |
 | `FIRE.maxSmoke` | 120 | orçamento de partículas |
 | `FIRE.maxFlames` | 260 | orçamento de chamas desenhadas |
 | `WATER.sprayCost` | 1 | volume por spray encostado no rio |

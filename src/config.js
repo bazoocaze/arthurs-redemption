@@ -93,6 +93,10 @@ export const FIRE = {
   maxSteam: 50, // orçamento de vapor (vida curta, então quase nunca chega no teto)
   smokeLifeMin: 2.2,
   smokeLifeMax: 4.5,
+  // Vento em px de TELA por segundo (negativo = para cima). Em iso, um delta de
+  // mundo vira diagonal na tela, então o vento é declarado no que se vê.
+  windX: 11,
+  windY: -26,
 };
 
 /** Chance de propagação por segundo, derivada do R0 alvo. */
