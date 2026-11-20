@@ -237,11 +237,16 @@ são desenhados para **não se confundirem**:
 | | fumaça (fuligem) | vapor |
 | --- | --- | --- |
 | sprite | 6 blobs escuros sobrepostos, silhueta esfarrapada | 4 blobs branco-azulados, compacto |
-| cor | `rgba(44,39,34,…)` | `rgba(255,255,255,…)` |
+| cor | `rgba(18,16,14,…,0.46)` (quase preto) | `rgba(255,255,255,…)` |
 | tamanho | 0,95–1,7 tile, expande 1,6× | 0,36–0,58 tile, expande 1,5× |
 | movimento | vento (`windX 11`, `windY −26` px/s) | sobe forte (−58 a −92 px/s) e freia |
 | vida | 2,2–4,5 s | 0,45–0,8 s |
 | alpha | entra rápido, sai com `1−t²` | `(1−t)²`, some rápido |
+
+**Ordem de desenho: chamas → fumaça → vapor.** A fumaça vem depois das chamas
+de propósito: ela sobe e passa por cima do fogo. Quando era desenhada antes, o
+jogador via um borrão escuro atrás das chamas, o que lia como "fumaça no fundo".
+O vapor fica por último porque é o feedback do que o jogador acabou de fazer.
 
 **Deslocamento em px de TELA, não em tiles.** `wx/wy` é a origem no mundo;
 `dx/dy` acumula `vdx/vdy` em pixels. Antes era `wx += vx`, e em iso mover X no

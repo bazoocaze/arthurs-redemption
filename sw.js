@@ -8,7 +8,7 @@
 //
 // Ao mudar arquivos do jogo, **bumpe a VERSION** para o shell ser reescrito:
 // o navegador só rebaixa o que mudou porque cada request é revalidada.
-const VERSION = 'ar-v1';
+const VERSION = 'ar-v2';
 const SHELL = [
   '.',
   'index.html',

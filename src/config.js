@@ -67,18 +67,22 @@ export const WATER = {
 // fim do jogo; em floresta esparsa R0 cai junto com os vizinhos, então fogo em
 // área rala morre sozinho.
 //
-// Consequência medida (tools: 24 seeds, floresta densa): um foco queima
-// ~1/(1-R0) = 6,7 tiles. O incêndio NÃO corre sem limite — e é isso que torna o
-// jogo justo — mas também significa que foco pequeno é inofensivo. Quem define
-// "o quanto assusta" é o RAIO DE IGNIÇÃO da bomba (~focos / (1-R0) tiles),
-// não o R0. Medido, densidade 90%:
-//   raio 2 (~13 focos) => mediana 19, máx 43 tiles (0,6% da floresta)
-//   raio 3 (~29 focos) => mediana 42, máx 56 tiles (1,3%)
-//   raio 5 (~78 focos) => ~500 tiles (~6%) -> bomba de M5
-// A cauda é curta: com R0 < 1 não existe incêndio apocalíptico, então o jogador
-// sempre pode reconstruir o que perdeu.
+// Consequência medida (16 seeds, uma bomba de raio 5 no centro, floresta
+// sintética): o fogo NÃO corre sem limite, porque a propagação é limitada por
+// ADJACÊNCIA, não pela chance. Medido:
+//   densidade 25% (jogo real)  R0 0,243 -> mediana 18 tiles queimados
+//   densidade 90% (floresta cheia) R0 0,850 -> mediana 84, máx 106
+// Ou seja: o "quanto assusta" é o RAIO DE IGNIÇÃO da bomba, não o R0. A
+// correção de uma estimativa antiga (~500 tiles por impacto) está em
+// docs/BACKLOG.md — ela nunca se confirmou numa medição.
 export const FIRE = {
-  r0Target: 0.85, // alvo de R0 na densidade de 90%
+  // R0 na densidade de 90%. Subiu de 0,85 para 1,105 (o "30% mais propagação":
+  // chance por segundo × 1,3). Efeito medido em 16 seeds, bomba raio 5:
+  //   densidade 25%: 18 -> 18 tiles (nada: ali só há ~2 vizinhos por tile)
+  //   densidade 90%: 84 -> 91 tiles, duração 30 -> 36 s
+  // R0 > 1 em floresta cheia é supercrítico: o incêndio não morre sozinho, só
+  // para na água ou na borda rala. Em 25% de densidade continua subcrítico.
+  r0Target: 1.105,
   neighborsAtDense: 7, // vizinhos ocupados esperados com 90% de densidade
   burnTime: 10, // segundos até a árvore virar cinza
   hpMin: 3, // aplicações de spray para debelar um foco
@@ -87,8 +91,8 @@ export const FIRE = {
   wetSeconds: 8, // duração da umidade depois do spray
   wetSpreadMul: 0.1, // vizinho molhado quase não pega fogo
   ashSeconds: 60, // cinza -> terra replantável
-  smokePerBurning: 0.9, // partículas por segundo por foco
-  maxSmoke: 120, // orçamento de partículas (fumaça é o efeito mais caro)
+  smokePerBurning: 1.17, // +30% (era 0,9): partículas/s por foco
+  maxSmoke: 156, // orçamento de partículas (fumaça é o efeito mais caro)
   maxFlames: 260, // orçamento de chamas desenhadas (acima disso, stride)
   maxSteam: 50, // orçamento de vapor (vida curta, então quase nunca chega no teto)
   smokeLifeMin: 2.2,
@@ -102,8 +106,8 @@ export const FIRE = {
 /** Chance de propagação por segundo, derivada do R0 alvo. */
 export const FIRE_CHANCE = FIRE.r0Target / (FIRE.neighborsAtDense * FIRE.burnTime);
 
-// Bombardeio. O raio de ignição é o botão de "quanto dói" (ver FIRE):
-// ~78 focos num raio 5 rendem ~500 tiles queimados por impacto, ~6% da floresta.
+// Bombardeio. O raio de ignição é o botão de "quanto dói" (ver FIRE): raio 5
+// abre ~71 focos, que em floresta cheia queimam mediana 81 / máx 109 tiles.
 export const BOMB = {
   firstDelayMin: 12, // s até a primeira bomba (dá tempo de plantar algo)
   firstDelayMax: 22,

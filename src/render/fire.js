@@ -167,7 +167,7 @@ function smokeSprite(fx) {
       [0.68, 0.6, 0.17],
       [0.5, 0.5, 0.2],
     ],
-    ['rgba(44, 39, 34, 0.34)', 'rgba(52, 46, 40, 0.20)', 'rgba(62, 55, 47, 0)'],
+    ['rgba(18, 16, 14, 0.46)', 'rgba(26, 23, 20, 0.26)', 'rgba(38, 34, 29, 0)'],
     64,
   );
   return fx.sprite;
@@ -262,26 +262,11 @@ export function drawFx(ctx, grid, cam, time, fx) {
   const burning = grid.burningTiles;
   if (!burning.length && !fx.smoke.length && !fx.steam.length) return 0;
 
-  // Ordem: fumaça (fuligem, cinza) -> chamas -> vapor (branco, por cima).
-  // A ordem é a mensagem: o que está embaixo é o que o fogo solta; o vapor da
-  // água fica na frente porque é o que o jogador acabou de fazer.
-
-  if (fx.smoke.length) {
-    const sprite = smokeSprite(fx);
-    for (let k = 0; k < fx.smoke.length; k++) {
-      const p = fx.smoke[k];
-      const lifeT = p.t / p.life;
-      // entra rápido, sai devagar: fuligem densa no começo da vida
-      const alpha = Math.min(1, lifeT * 7) * (1 - lifeT * lifeT) * 0.95;
-      const size = TILE_W * p.size * (0.55 + lifeT * p.grow) * z;
-      const sx = baseX(cam, p.wx, p.wy) + p.dx * z;
-      const sy = baseY(cam, p.wx, p.wy) + p.dy * z;
-      if (sx + size < 0 || sx - size > cam.viewW || sy + size < 0 || sy - size > cam.viewH) continue;
-      ctx.globalAlpha = alpha;
-      ctx.drawImage(sprite, sx - size / 2, sy - size / 2, size, size);
-    }
-    ctx.globalAlpha = 1;
-  }
+  // Ordem: chamas -> fumaça -> vapor.
+  //
+  // A fumaça vem DEPOIS das chamas: ela sobe e passa por cima do fogo, que é o
+  // que o olho espera. Desenhada antes, ela era apenas um borrão atrás das
+  // chamas. O vapor (o que o jogador acabou de fazer) fica em cima de tudo.
 
   if (burning.length) {
     if (!fx.flames) buildFlames(fx);
@@ -305,6 +290,23 @@ export function drawFx(ctx, grid, cam, time, fx) {
       const w = h * (spr.width / spr.height);
       ctx.drawImage(spr, sx - w / 2, sy - h * 0.84, w, h);
     }
+  }
+
+  if (fx.smoke.length) {
+    const sprite = smokeSprite(fx);
+    for (let k = 0; k < fx.smoke.length; k++) {
+      const p = fx.smoke[k];
+      const lifeT = p.t / p.life;
+      // entra rápido, sai devagar: fuligem densa no começo da vida
+      const alpha = Math.min(1, lifeT * 7) * (1 - lifeT * lifeT) * 0.95;
+      const size = TILE_W * p.size * (0.55 + lifeT * p.grow) * z;
+      const sx = baseX(cam, p.wx, p.wy) + p.dx * z;
+      const sy = baseY(cam, p.wx, p.wy) + p.dy * z;
+      if (sx + size < 0 || sx - size > cam.viewW || sy + size < 0 || sy - size > cam.viewH) continue;
+      ctx.globalAlpha = alpha;
+      ctx.drawImage(sprite, sx - size / 2, sy - size / 2, size, size);
+    }
+    ctx.globalAlpha = 1;
   }
 
   if (fx.steam.length) {

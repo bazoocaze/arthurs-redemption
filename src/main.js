@@ -11,7 +11,7 @@ import { drawBrush } from './render/overlay.js';
 import { createFx, updateFx, drawFx, spawnSteam } from './render/fire.js';
 import { applyBrush, strokePath } from './sim/paint.js';
 import { stepFire, igniteRadius } from './sim/fire.js';
-import { createBombs, updateBombs, dropBomb, bombsForEvent } from './sim/bombs.js';
+import { createBombs, updateBombs, dropBomb, bombsForEvent, pickTarget } from './sim/bombs.js';
 import {
   createBombFx, spawnBlast, updateBombFx, drawBombs, drawBombFx, bombFxActive,
 } from './render/bombs.js';
@@ -149,11 +149,24 @@ const hooks = {
     ui.refreshTool();
     dirty = true;
   },
-  /** Debug/teste: solta uma bomba no tile. */
+  /** Debug/teste: solta uma bomba no tile exato (tecla B). */
   bomb(x, y) {
     dropBomb(bombs, grid, x, y, SEED);
     dirty = true;
     return bombs.inFlight.length;
+  },
+  /**
+   * Debug/teste: solta uma bomba como o JOGO sorteia (tecla N) — 50% aleatorio,
+   * 50% mirando floresta, e sempre evitando o ultimo impacto. Serve para
+   * validar a distribuicao; a tecla B pinta o alvo do cursor, entao repetir B
+   * com o mouse parado cai sempre no mesmo tile (por design).
+   */
+  naturalBomb() {
+    const t = pickTarget(bombs, grid);
+    if (!t) return null;
+    dropBomb(bombs, grid, t.x, t.y, SEED);
+    dirty = true;
+    return t;
   },
   /** Debug/teste: acende fogo em disco. Em M5 quem chama é a bomba. */
   ignite(x, y, radius = 4) {
@@ -495,6 +508,11 @@ window.addEventListener('keydown', (e) => {
   // I acende fogo no tile sob o cursor (só com debug aberto; M5 traz as bombas)
   if ((e.key === 'i' || e.key === 'I') && dbgMode === 2 && state.hover) {
     hooks.ignite(state.hover.x, state.hover.y, 4);
+    return;
+  }
+  // N = bomba como o jogo sorteia (B mira o cursor e repete o mesmo tile).
+  if ((e.key === 'n' || e.key === 'N') && dbgMode === 2) {
+    hooks.naturalBomb();
     return;
   }
   if (e.key === 'm' || e.key === 'M') {

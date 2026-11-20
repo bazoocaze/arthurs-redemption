@@ -91,8 +91,8 @@ spray e cinzas, bombardeio com voo visível e explosão, e **áudio procedural**
 | Mira em floresta procura árvore de fato, longe do último impacto | ✅ | 32 tentativas, escolhe a mais longe |
 | Voo visível com arco, rastro e faísca | ✅ | 1,1–1,7 s de voo |
 | Sombra no alvo que cresce | ✅ | única dica de onde cai |
-| Impacto: clarão, anel, poeira, tremor, ignição raio 5 | ✅ | ~500 tiles queimados por impacto |
-| `B` solta bomba no cursor (debug) | ✅ | só com `?debug=1` |
+| Impacto: clarão, anel, poeira, tremor, ignição raio 5 | ✅ | mediana 84 tiles em floresta cheia |
+| `B` solta bomba no cursor / `N` bomba sorteada (debug) | ✅ | só com `?debug=1`; `B` repete o tile do cursor |
 
 ## Fim de jogo e pontuação
 

@@ -78,35 +78,57 @@ Convenções de status:
 - [x] Árvore queimada → cinza (`STATE.ASH`) com `ashT`
 - [x] Cinza decai em 60s → terra replantável
 - [x] Contadores: `burningCount`, `ashCount`, `treeCount` incrementais + `recount()` nos testes
-- [x] Render: chamas com sprite (halo embutido), fumaça com orçamento de 120 partículas, cicatriz de cinza no terreno
+- [x] Render: chamas com sprite (halo embutido), fumaça com orçamento de 156 partículas desenhada **por cima** das chamas, cicatriz de cinza no terreno
 - [x] HUD: pílula 🔥 com número de focos
 - [x] Ferramenta 💧 sensível ao contexto: apaga fogo / molha árvore / cava lago
 - [x] 15 testes novos no `check.mjs` (R0, água como barreira, aceiro, spray, cinza, determinismo, contadores)
 
 ### O que a medição mudou no plano
 
-R0 < 1 **é** o que torna o jogo justo, mas sozinho ele deixa o fogo inofensivo:
-um foco queima `1/(1-R0) ≈ 6,7` tiles. Medido em 24 seeds a 90% de densidade:
+Medido em 10 seeds a 90% de densidade (uma ignição, sem novas bombas):
 
 | raio de ignição | focos | mediana queimada | máx | % da floresta |
 | --- | --- | --- | --- | --- |
-| 2 | ~13 | 19 tiles | 43 | 0,6% |
-| 3 | ~29 | 42 tiles | 56 | 1,3% |
-| 5 | ~78 | ~500 tiles | — | ~6% |
+| 2 | ~12 | 23 tiles | 54 | 0,3% |
+| 3 | ~28 | 43 tiles | 67 | 0,5% |
+| 5 | ~71 | 81 tiles | 109 | 1,0% |
 
-Conclusão: **o "quanto assusta" é o raio de ignição da bomba (M5), não o R0**. O
-R0 fica em 0,85 para o incêndio ter teto (nunca apocalíptico, sempre
-reconstruível) e a ameaça vem do tamanho do que a bomba acende.
+> **Correção de estimativa.** Durante o M5 eu documentei "~500 tiles por
+> impacto, ~6% da floresta". Repetindo com o simulador isolado (16 seeds), o
+> número real é **mediana 84 / máx 106** com R0 0,85. O erro nasceu de contar
+> tiles queimados acumulados em várias explosões como se fossem uma. A
+> conclusão qualitativa não muda — **o "quanto assusta" é o raio de ignição, não
+> o R0** — mas a bomba é 6× menos devastadora do que a doc dizia.
+
+### R0 0,85 → 1,105 ("30% mais propagação", pedido do usuário)
+
+A propagação é limitada por **adjacência**: um tile só pega fogo de um vizinho
+que já está queimando. Multiplicar a chance por 1,3 mexe em R0, mas onde há
+poucos vizinhos não há o que multiplicar. Medido em 16 seeds, bomba raio 5:
+
+| densidade | R0 antes | R0 depois | tiles antes | tiles depois | duração |
+| --- | --- | --- | --- | --- | --- |
+| 25% (jogo real) | 0,243 | 0,316 | 18 | 18 | 11 s → 12 s |
+| 90% (floresta cheia) | 0,850 | 1,105 | 84 | 91 | 30 s → 36 s |
+
+Em floresta cheia R0 passa de 1 (supercrítico): o incêndio deixa de ter teto e
+só para na água ou na borda rala. **É uma escolha de design, não um acidente** —
+está travada por teste em `check.mjs` (`R0 configurado…`).
+
+Se o objetivo era "o fogo se espalha mais rápido" e não "queima mais área", o
+botão é `FIRE.burnTime`: medido com R0 de volta em 0,85 e `burnTime` 10 → 7 s, a
+área queimada fica igual (87 vs 84) e a frente avança ~20% mais rápido
+(duração 25 s vs 30 s).
 
 ## M5 — Bombardeio ✅
 
-- [x] Raio de ignição 5 (medido: ~500 tiles queimados por impacto, ~6% da floresta)
+- [x] Raio de ignição 5 (medido: mediana 84 tiles queimados por impacto em floresta cheia)
 - [x] `src/sim/bombs.js`: agendador 15–30 s, primeira bomba em 12–22 s
 - [x] Bombas por evento = `min(1 + floor(elapsed/60), 5)`
 - [x] Alvo: 50% destino aleatório / 50% mira floresta (`BOMB.forestBias`); nunca em água
 - [x] Voo visível: arco parabólico entrando pela lateral, rastro, sombra que cresce no alvo
 - [x] Impacto: clarão + anel em expansão + poeira + tremor de tela + ignição em raio
-- [x] Debug: tecla `B` solta uma bomba no cursor
+- [x] Debug: `B` solta uma bomba no cursor, `N` solta uma bomba sorteada como o jogo faz
 - [x] 7 testes novos (40 no total): fórmula por evento, alvo fora da água, preferência por floresta, impacto, agendador, determinismo
 
 ### Decisões que a medição forçou

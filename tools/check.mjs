@@ -236,16 +236,41 @@ check('strokePath cobre a linha sem repetir o início', () => {
 
 
 console.log('fogo — balanceamento');
-check('R0 alvo fica abaixo de 1 na densidade de 90%', () => {
+check('R0 configurado bate com a fórmula (fogo supercrítico em floresta densa)', () => {
   const r0 = expectedR0(0.9);
-  assert(r0 < 1, `R0 ${r0.toFixed(3)} deveria ser < 1`);
-  assert(r0 > 0.5, `R0 ${r0.toFixed(3)} baixo demais: fogo nunca ameaça`);
+  assert(Math.abs(r0 - FIRE.r0Target) < 1e-6, `R0 ${r0} != alvo ${FIRE.r0Target}`);
+  // Decisão de design: 30% mais propagação levou R0 de 0,85 para 1,105, ou seja
+  // ACIMA de 1. Em floresta densa o incêndio eh supercrítico e só para na água
+  // ou na borda rala. Se alguém mexer nisso, o teste avisa.
+  assert(r0 > 1, `R0 ${r0.toFixed(3)} deveria ser > 1 (supercrítico)`);
+  assert(r0 < 1.2, `R0 ${r0.toFixed(3)} passou de 1,2 — estourou o alvo`);
 });
-check('R0 cresce com a densidade e continua < 1 em 100%', () => {
-  const sparse = expectedR0(0.3);
-  const dense = expectedR0(1);
-  assert(dense > sparse, 'denso deveria ter R0 maior');
-  assert(dense < 1.05, `R0 em densidade total ${dense.toFixed(3)} passou do limite`);
+check('R0 cresce com a densidade e é subcrítico em floresta rala', () => {
+  const rala = expectedR0(0.3);
+  const densa = expectedR0(0.9);
+  assert(rala < densa, 'R0 não cresce com a densidade');
+  assert(rala < 1, `R0 em 30% de densidade (${rala.toFixed(2)}) deveria ser < 1`);
+});
+check('uma bomba de raio 5 não incendeia o mapa inteiro', () => {
+  // Guarda contra fogo descontrolado: mede o pior caso em floresta a 43%.
+  const g = fireGrid(64, 64);
+  for (let y = 4; y < 60; y++) for (let x = 4; x < 60; x++) {
+    if (hash2(x, y, 4242) < 0.43) g.tree[g.idx(x, y)] = 1;
+  }
+  g.treeCount = 0;
+  g.recount();
+  const antes = g.treeCount;
+  igniteRadius(g, 32, 32, 5, 1234);
+  let t = 0;
+  while (g.burningCount > 0 && t < 900) {
+    stepFire(g, 0.1, 1234);
+    t += 0.1;
+  }
+  let ash = 0;
+  for (let i = 0; i < g.ashT.length; i++) if (g.state[i] === STATE.ASH) ash++;
+  const frac = ash / antes;
+  assert(frac < 0.15, `queimou ${(frac * 100).toFixed(1)}% da floresta com uma bomba`);
+  assert(ash > 10, `queimou só ${ash} tiles — fogo apagado demais`);
 });
 check('chance derivada bate com FIRE_CHANCE', () => {
   const esperado = FIRE.r0Target / (FIRE.neighborsAtDense * FIRE.burnTime);

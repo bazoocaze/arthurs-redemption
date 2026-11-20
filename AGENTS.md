@@ -46,8 +46,9 @@ ele reporta exceções/console, avalia JS e salva screenshot. Sempre rodar
 `check.mjs` + `probe.mjs` antes de marcar tarefa como concluída.
 
 **Teclas**: `1`/`2`/`3` ferramenta · `[`/`]` raio do pincel · `F` enquadra ·
-setas/WASD movem · `` ` `` alterna perf/painel · `I` acende fogo e `B` solta uma
-bomba no cursor (só com `?debug=1`). `M` liga/desliga o som (persistido em
+setas/WASD movem · `` ` `` alterna perf/painel · `I` acende fogo, `B` solta uma
+bomba no cursor e `N` solta uma bomba sorteada como o jogo faz (só com
+`?debug=1`; `B` repete o tile do cursor de propósito). `M` liga/desliga o som (persistido em
 localStorage). Próximo marco: M8 (polimento) — o jogo já tem fim e nota.
 
 **Debug de fim de jogo:** com `?debug=1`, **`V`** força vitória e **`L`** força
