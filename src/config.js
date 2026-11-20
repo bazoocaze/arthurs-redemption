@@ -18,7 +18,7 @@ export const WORLD_H = ((GRID_W - 1) * TILE_H) / 2 + ((GRID_H - 1) * TILE_H) / 2
 export const CAM = {
   minZoom: 0.18,
   maxZoom: 3,
-  initialZoom: 0.55,
+  initialZoom: 1, // zoom de abertura (1 = pixel de mundo = pixel de tela)
   wheelStrength: 0.0016, // fator por unidade de deltaY
   edgePad: 220, // margem de mundo visível além da borda
 };

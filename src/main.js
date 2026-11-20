@@ -1,6 +1,6 @@
 // Bootstrap e loop principal. Aqui vive a ordem de update/render: simulação não
 // conhece pixels, render não conhece regras.
-import { COLORS, TIME, BRUSH, FIRE, BOMB, TILE_W, ORIGIN_X } from './config.js';
+import { COLORS, TIME, BRUSH, FIRE, BOMB, TILE_W, ORIGIN_X, CAM, WORLD_W, WORLD_H } from './config.js';
 import { generateWorld } from './generator.js';
 import { Camera } from './camera.js';
 import { createInput } from './input.js';
@@ -264,7 +264,9 @@ function resize() {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   camera.setViewport(w, h);
   if (!fitted) {
-    camera.fitWorld();
+    // Abre em zoom 1 (detalhe), centrado no mapa. `F` reenquadra o mundo.
+    camera.zoom = CAM.initialZoom;
+    camera.centerOn(WORLD_W / 2, WORLD_H / 2);
     fitted = true;
   }
   dirty = true;
