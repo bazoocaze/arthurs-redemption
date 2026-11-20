@@ -7,8 +7,7 @@
 //   cresce com o tamanho do incêndio até engasgar o frame.
 //
 // O fogo é visual: a simulação (sim/fire.js) não sabe que este arquivo existe.
-import { TILE_W, TILE_H, ORIGIN_X, COLORS, FIRE } from '../config.js';
-import { STATE } from '../grid.js';
+import { TILE_W, TILE_H, ORIGIN_X, FIRE } from '../config.js';
 import { hash2 } from '../rng.js';
 
 const HW = TILE_W / 2;

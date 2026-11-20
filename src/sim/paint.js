@@ -1,6 +1,6 @@
 // Regras de pintura: plantar árvore e combater fogo com água.
 // Muta o grid e mantém os contadores incrementais em sincronia.
-import { SPECIES, WATER } from '../config.js';
+import { SPECIES } from '../config.js';
 import { STATE, TERRAIN } from '../grid.js';
 import { fbm2, hash2 } from '../rng.js';
 import { sprayTile } from './fire.js';

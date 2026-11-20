@@ -260,13 +260,15 @@ por teste em `check.mjs` (`frente de fogo avança um tile por burnTime`).
 | D | < 750 | venceu arrastando |
 | F | — | secou com fogo ativo |
 
-## M8 — Polimento
+## M8 — Polimento (parcial)
 
-- [ ] HUD mínimo: árvores vivas, tempo, nível de bombardeio (ícones + números)
-- [ ] Tela inicial / onboarding de 1 linha ("plante arrastando")
-- [ ] Ajuste de balanceamento (tempos, chance de propagação, N de água)
-- [ ] Acessibilidade básica: contraste, alvos grandes no mobile, `prefers-reduced-motion` reduzindo shake/partículas
-- [ ] Teste em tela pequena (360px) e touch real
+- [x] HUD: cobertura 🌲, água 💧 e pílula 🔥 de focos
+- [ ] HUD: **tempo decorrido** e **árvores vivas** (hoje só no painel de debug)
+- [x] Onboarding de 1 linha: `#hint` ("arraste para plantar") que desaparece em 9 s
+- [x] Balanceamento: R0 0,85 · `burnTime` 7 s · raio de ignição 5 · 50/50 aleatório/floresta
+- [ ] Acessibilidade: `prefers-reduced-motion` cobre só a dica e as barras — **não** cobre tremor de tela nem partículas; `#hud` é `aria-hidden`, então leitor de tela não recebe nada
+- [x] Teste em 360×740 (headless): HUD 206 px e palette 318 px cabem, alvos de toque 44–48 px
+- [ ] Touch em aparelho real (pinça, arrasto contínuo)
 
 ---
 
