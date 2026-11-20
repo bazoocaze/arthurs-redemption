@@ -101,6 +101,10 @@ export function createUi(state, hooks) {
   return {
     refreshTool,
     updateHud,
+    /** Troca a dica do rodapé (usada pelo aviso de instalação no iOS). */
+    hint(text) {
+      if (hintEl) hintEl.textContent = text;
+    },
     /** Tela final: nota grande, stats por ícone, recordes que caíram. */
     showEnd(result, records, novos) {
       endGrade.textContent = result.grade;

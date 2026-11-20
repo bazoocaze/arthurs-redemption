@@ -7,6 +7,13 @@
       content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
     />
     <meta name="theme-color" content="#12100d" />
+    <!-- iOS ignora o manifest: sem estas metas o "Adicionar à Tela de Início"
+         abre com barra de endereço e sem ícone próprio. -->
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Redemption" />
+    <link rel="apple-touch-icon" href="icons/icon-192.png" />
     <meta name="description" content="Plante e proteja a floresta do Arthur." />
     <title>Arthur's Redemption</title>
     <link rel="manifest" href="manifest.webmanifest" />
@@ -32,6 +39,15 @@
         color: var(--ui);
         font: 500 13px/1.45 ui-sans-serif, system-ui, -apple-system, sans-serif;
         overscroll-behavior: none;
+      }
+      /* A barra de endereço do celular muda a altura do viewport; `100%` deixa
+         o canvas mais alto que a área visível. 100dvh segue o que está à vista
+         (e, instalado em tela cheia, é a tela inteira). */
+      @supports (height: 100dvh) {
+        html,
+        body {
+          height: 100dvh;
+        }
       }
       #game {
         display: block;
@@ -145,6 +161,15 @@
       }
       #palette button:active {
         transform: scale(0.95);
+      }
+      #palette button[hidden] {
+        display: none;
+      }
+      #install-btn {
+        width: 44px !important;
+        font-size: 17px !important;
+        border-left: 1px solid rgba(255, 255, 255, 0.1) !important;
+        border-radius: 0 12px 12px 0 !important;
       }
       #mute-btn {
         width: 44px !important;
@@ -377,6 +402,9 @@
       <button data-tool="water" title="Água: apaga fogo (2)" aria-label="Água: apaga fogo">💧</button>
       <button id="brush-btn" title="Tamanho do pincel ( [ e ] )" aria-label="Tamanho do pincel">
         <span id="brush-val">2</span>
+      </button>
+      <button id="install-btn" title="Instalar como app" aria-label="Instalar como app" hidden>
+        📲
       </button>
       <button id="mute-btn" title="Som (M)" aria-label="Ligar ou desligar o som">🔊</button>
       <button id="reset-btn" title="Recomeçar (toque 2×)" aria-label="Recomeçar o jogo">↺</button>

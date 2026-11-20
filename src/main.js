@@ -286,6 +286,46 @@ function resize() {
 window.addEventListener('resize', resize);
 const input = createInput(canvas, camera, state, hooks);
 
+// --- instalar como app ----------------------------------------------------
+// Android/Chrome: `beforeinstallprompt` dá o diálogo nativo, e o botão da
+// paleta só aparece quando ele existe. iOS não tem evento nenhum — o caminho é
+// Compartilhar → Adicionar à Tela de Início, então ali a única coisa útil é
+// dizer isso, uma vez, em vez de deixar a opção invisível.
+const installBtn = document.getElementById('install-btn');
+let installPrompt = null;
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  installPrompt = e;
+  if (installBtn) installBtn.hidden = false;
+});
+
+window.addEventListener('appinstalled', () => {
+  installPrompt = null;
+  if (installBtn) installBtn.hidden = true;
+});
+
+if (installBtn) {
+  installBtn.addEventListener('click', async () => {
+    if (!installPrompt) return;
+    installPrompt.prompt();
+    const escolha = await installPrompt.userChoice.catch(() => null);
+    if (escolha && escolha.outcome === 'accepted') installBtn.hidden = true;
+    installPrompt = null;
+  });
+}
+
+const ehIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
+const ehWebView = /FBAN|FBAV|Instagram|Line\//i.test(navigator.userAgent);
+const jaInstalado =
+  window.matchMedia('(display-mode: standalone)').matches ||
+  window.matchMedia('(display-mode: fullscreen)').matches ||
+  navigator.standalone === true;
+
+if (ehIOS && !jaInstalado && !ehWebView) {
+  setTimeout(() => ui.hint('para instalar: compartilhar → adicionar à tela de início'), 3500);
+}
+
 // --- overlay de debug -----------------------------------------------------
 
 const dbgEl = document.getElementById('debug');
