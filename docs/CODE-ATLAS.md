@@ -58,7 +58,7 @@ Regra de ouro: **a simulação não conhece pixels; o render não conhece regras
 | `src/render/terrain.js` | ✅ | terreno: `Path2D.rect` em espaço de tile + matriz iso | simulação |
 | `src/render/trees.js` | ✅ | árvores: groves, sprites, LOD por zoom | regras |
 | `src/render/sprites.js` | ✅ | sprites de árvore pré-renderizados (base + sombra embutida) | estado |
-| `src/render/overlay.js` | ✅ | highlight e preview do brush | regras |
+| `src/render/overlay.js` | ✅ | highlight e preview do brush (mouse e toque) | regras |
 | `src/grove.js` | ✅ | detecção de bloco NxN da mesma espécie (puro, testável) | canvas |
 | `src/sim/paint.js` | ✅ | plantar, spray/molha, brush, trilha, drenagem do rio | render |
 | `src/sim/fire.js` | ✅ | ignição, propagação (R0), spray, cinza, umidade | render |

@@ -79,6 +79,7 @@ export function createInput(canvas, camera, state, hooks) {
       if (mode === 'paint') hooks.endStroke();
       mode = 'pinch';
       lastPinch = null;
+      state.hover = null;
     }
   });
 
@@ -87,11 +88,15 @@ export function createInput(canvas, camera, state, hooks) {
     const prev = pointers.get(e.pointerId);
 
     if (!prev) {
-      if (pos.type === 'mouse') updateHover(pos);
+      updateHover(pos);
       return;
     }
 
-    if (pos.type === 'mouse') updateHover(pos);
+    // O preview do pincel é o feedback de ONDE o traço cai. No mouse ele andava
+    // porque era atualizado aqui; no toque ficava parado no ponto do
+    // `pointerdown` enquanto o dedo pintava — a floresta aparecia (quem pinta é
+    // `moveStroke`), mas a grade branca não acompanhava. Pinch não tem hover.
+    if (pointers.size < 2) updateHover(pos);
     const dx = pos.x - prev.x;
     const dy = pos.y - prev.y;
     pointers.set(e.pointerId, pos);

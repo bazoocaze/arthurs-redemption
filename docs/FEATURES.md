@@ -44,7 +44,7 @@ spray e cinzas, bombardeio com voo visível e explosão, e **áudio procedural**
 | Feature | Status | Observações |
 | --- | --- | --- |
 | Palheta com 3 ferramentas (🖐️ / 🌲 / 💧) | ✅ | atalhos 1 / 2 / 3 |
-| Brush circular raio 1–4 + preview dos tiles | ✅ | `[` `]` ou botão na palheta |
+| Brush circular raio 1–4 + preview dos tiles | ✅ | `[` `]` ou botão na palheta; o preview acompanha o dedo no touch |
 | Trilha interpolada (Bresenham) no arrasto | ✅ | arrasto rápido não deixa buracos |
 | Plantar floresta em terra vazia | ✅ | ignora água, cinza e fogo |
 | Pintar água drenando o rio | ✅ | custo `2 * (1 + (dist-1) * 0.5)` |
