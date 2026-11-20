@@ -34,9 +34,9 @@ Convenções de status:
 - [x] Render base: terra em losangos, batching por cor (poucos `fill` por frame)
 - [x] Culling no viewport (~870 tiles a zoom 1.1)
 - [x] Medir perf: 60fps a zoom 1.1 e 53fps a zoom-out total (Chromium headless, sem GPU)
-- [ ] Highlight/sombra de relevo no terreno (fica flat; árvores vão dominar a leitura)
-- [ ] Pan com botão direito/meio dedicado (hoje o esquerdo também arrasta; muda em M3)
-- [ ] Medir perf com viewport cheio de árvores (depende de M3)
+- [x] Highlight/sombra de relevo no terreno — **não faremos**: o terreno flat é a identidade visual escolhida, as árvores carregam a leitura
+- [x] Pan com botão direito/meio dedicado — feito em M3: botão direito/meio sempre arrasta, dois dedos no touch
+- [x] Perf com viewport cheio de árvores — medido: 41% de cobertura a zoom 0,8 ≈ 7,6 ms de árvores, 8,4 ms o quadro
 
 ## M2 — Dirty flags / render em camadas
 
@@ -45,8 +45,8 @@ Convenções de status:
 - [x] Árvores como sprites pré-renderizados (1 `drawImage` por árvore em vez de 6-19 chamadas)
 - [x] Overlay de fogo/fumaça/bombas (será dinâmico por frame em M4/M5)
 - [x] Contador de debug: fps, tiles desenhados, árvores desenhadas, ms do render
-- [ ] Chunks assados em offscreen — **adiado**: as duas otimizações acima resolveram o gargalo; só voltar se o custo por frame pós-M4/M5 (fogo + fumaça + bombas) passar de ~10ms
-- [ ] `invalidateTile(x,y)` / cache de chunks — só se chunks voltarem ao plano
+- [x] Chunks assados em offscreen — **encerrado**: com fogo, fumaça e bombas o quadro fica em 2–3 ms (medido), muito abaixo do gatilho de 10 ms
+- [x] `invalidateTile(x,y)` / cache de chunks — **encerrado** junto com os chunks
 
 ## M3 — Pintura (floresta / água)
 
@@ -58,7 +58,7 @@ Convenções de status:
 - [x] Preview do brush (todos os tiles que a pintada atinge)
 - [x] Pan sempre disponível: botão direito/meio, shift, espaço, ferramenta mão, 2 dedos, setas/WASD; `F` enquadra o mundo
 - [x] Água no incêndio (spray) fica para M4 — depende do modelo de fogo
-- [ ] Undo simples (descartado por ora: recomeçar é barato)
+- [x] Undo simples — **descartado**: recomeçar custa um clique e a partida é curta
 
 ## M3b — Espécies e agrupamento visual
 
