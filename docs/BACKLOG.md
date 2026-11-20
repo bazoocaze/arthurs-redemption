@@ -214,9 +214,34 @@ por teste em `check.mjs` (`frente de fogo avança um tile por burnTime`).
 - **`pagehide` + recomeçar = bug.** O botão apagava o save e recarregava, mas o
   `pagehide` salvava de novo o estado descartado (o jogo "voltava" depois de
   recomeçar). Corrigido com a flag `saveDescartado`.
-- **Dev é network-first.** Stale-while-revalidate em localhost serviria o código
-  do carregamento anterior após cada edição. Em produção é stale-while-revalidate
-  (abre na hora e atualiza por trás).
+- **Rede primeiro, sempre.** Foi stale-while-revalidate em produção (abre na
+  hora, atualiza por trás) e no Android isso travou o jogo numa versão antiga: o
+  Chrome congela a aba quando o app sai da frente e a revalidação em segundo
+  plano nunca terminava. Agora: rede primeiro, cache só como rede de segurança
+  offline. `register(..., { updateViaCache: 'none' })` impede o `sw.js` de vir do
+  cache HTTP (o Pages manda `max-age=600`), `reg.update()` roda quando a aba
+  volta à frente e `controllerchange` recarrega uma vez. O save do `pagehide`
+  cobre o reload.
+- **`id` explícito no manifest.** `/arthurs-redemption/`. Sem `id` o Chrome
+  deriva a identidade do `start_url`, o que fica ambíguo num domínio que hospeda
+  vários PWAs (`samecube`, `samegame`). A barra no fim importa: ids são
+  comparados como texto, e a forma sem barra é outro app.
+- **Pause escuta três sinais.** `visibilitychange` sozinho não cobre o Android:
+  sair pelo seletor de apps ou bloquear a tela às vezes só tira o foco. Também
+  escuta `blur` (`!document.hasFocus()`) e `freeze` (Page Lifecycle). Retomar
+  exige `visibilityState !== 'hidden'`, então um `focus` isolado não ressuscita o
+  jogo escondido. O `AudioContext` é suspenso — só zerar a cama de fogo deixaria
+  um estalo agendado tocando.
+- **O save não manda no zoom.** Ele devolve o lugar onde a partida parou; o zoom
+  de abertura é sempre `CAM.initialZoom`. Antes um save de quando o boot
+  enquadrava o mundo reabria em 0,19 para sempre.
+- **Zoom de abertura = 1** (pixel de mundo = pixel de tela), não o enquadramento
+  do mundo: no fit (~0,2) o jogo abria em LOD, com floresta virando mancha de
+  cor. `F` continua enquadrando o mundo.
+- **Palheta centralizada com `left/right: 0` + `margin: auto`.** Com
+  `left: 50%` + `translateX(-50%)` o bloco de contenção termina no meio da tela,
+  então num 360 px sobravam 180 px e os 7 botões quebravam linha mesmo cabendo.
+  `@media (max-width: 430px)` e `(max-width: 340px)` apertam os botões.
 
 ## M9 — Recursos e objetivo ✅
 
