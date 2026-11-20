@@ -3,6 +3,7 @@
 import { SPECIES, WATER } from '../config.js';
 import { STATE, TERRAIN } from '../grid.js';
 import { fbm2, hash2 } from '../rng.js';
+import { sprayTile } from './fire.js';
 
 /** Espécie determinística pela posição: manchas coerentes + jitter quebra a grade. */
 export function speciesAt(x, y, seed) {
@@ -111,6 +112,32 @@ export function brushTiles(grid, cx, cy, radius, fn) {
 }
 
 /**
+ * Ferramenta água, sensível ao contexto:
+ *   - tile em chamas  -> spray (reduz fireHp; apaga de vez quando zera)
+ *   - árvore sã       -> molha (aceiro)
+ *   - terra vazia     -> cava lago (custo por distância do rio)
+ *   - cinza/água      -> nada
+ * O custo de transporte é o mesmo da pintura: longe do rio, apagar é caro.
+ */
+export function applyWater(grid, cx, cy, radius, seed) {
+  let changed = 0;
+  brushTiles(grid, cx, cy, radius, (x, y) => {
+    const i = grid.idx(x, y);
+    if (grid.terrain[i] === TERRAIN.WATER) return;
+    const st = grid.state[i];
+    const burning = st === STATE.BURNING;
+    const tree = grid.tree[i] === 1;
+    if (burning || tree) {
+      if (sprayTile(grid, x, y, seed) > 0) changed++;
+      return;
+    }
+    if (st === STATE.ASH) return;
+    if (paintWaterTile(grid, x, y) > 0) changed++;
+  });
+  return changed;
+}
+
+/**
  * Aplica o brush em um tile. `tool` é 'tree' ou 'water'.
  * Retorna quantos tiles mudaram.
  */
@@ -121,9 +148,7 @@ export function applyBrush(grid, cx, cy, radius, tool, seed) {
       if (plantTree(grid, x, y, seed)) changed++;
     });
   } else if (tool === 'water') {
-    brushTiles(grid, cx, cy, radius, (x, y) => {
-      if (paintWaterTile(grid, x, y) > 0) changed++;
-    });
+    changed = applyWater(grid, cx, cy, radius, seed);
   }
   return changed;
 }

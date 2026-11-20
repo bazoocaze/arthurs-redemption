@@ -68,19 +68,39 @@ Convenções de status:
 - [x] Moita única desenhada no lugar de N árvores dentro do bloco
 - [x] LOD: abaixo de `RENDER.lodZoom` (0.45) árvores viram manchas em 4 paths (1 por espécie)
 
-## M4 — Fogo, água e cinzas
+## M4 — Fogo, água e cinzas ✅
 
-- [ ] `src/sim/fire.js`: ignição, propagação 8-vizinhos com chance/tick e resistência a `wet`
-- [ ] Balancear como R0 explícito em config: `R0 = vizinhos * chance/s * burnTime`, alvo R0 < 1 na densidade de 90% (senão o jogo é impossível)
-- [ ] Fogo nunca atravessa tile de água
-- [ ] `fireHp` por foco: requer N aplicações de água (N ~4, tunável) para debelar
-- [ ] Água molha tile por alguns segundos (reduz chance de reignição / serve de aceiro)
-- [ ] Árvore queimada → cinza (estado ASH) com `ashT`
-- [ ] Cinza decai em 60s → terra vazia replantável
-- [ ] Estatísticas: árvores vivas, árvores queimadas, área queimada
+- [x] `src/sim/fire.js`: ignição, propagação 8-vizinhos por tick fixo, resistência a `wet`
+- [x] R0 explícito: `R0 = vizinhos * chance/s * burnTime`, derivado de `FIRE.r0Target` (0,85 em 90% de densidade)
+- [x] Fogo nunca atravessa tile de água (nem diagonal)
+- [x] `fireHp` 3–5 por foco: cada spray reduz 1; ao zerar a árvore é **salva**
+- [x] Spray molha o tile por `FIRE.wetSeconds` (8s) e serve de aceiro (10% da chance)
+- [x] Árvore queimada → cinza (`STATE.ASH`) com `ashT`
+- [x] Cinza decai em 60s → terra replantável
+- [x] Contadores: `burningCount`, `ashCount`, `treeCount` incrementais + `recount()` nos testes
+- [x] Render: chamas com sprite (halo embutido), fumaça com orçamento de 120 partículas, cicatriz de cinza no terreno
+- [x] HUD: pílula 🔥 com número de focos
+- [x] Ferramenta 💧 sensível ao contexto: apaga fogo / molha árvore / cava lago
+- [x] 15 testes novos no `check.mjs` (R0, água como barreira, aceiro, spray, cinza, determinismo, contadores)
 
-## M5 — Bombardeio
+### O que a medição mudou no plano
 
+R0 < 1 **é** o que torna o jogo justo, mas sozinho ele deixa o fogo inofensivo:
+um foco queima `1/(1-R0) ≈ 6,7` tiles. Medido em 24 seeds a 90% de densidade:
+
+| raio de ignição | focos | mediana queimada | máx | % da floresta |
+| --- | --- | --- | --- | --- |
+| 2 | ~13 | 19 tiles | 43 | 0,6% |
+| 3 | ~29 | 42 tiles | 56 | 1,3% |
+| 5 | ~78 | ~500 tiles | — | ~6% |
+
+Conclusão: **o "quanto assusta" é o raio de ignição da bomba (M5), não o R0**. O
+R0 fica em 0,85 para o incêndio ter teto (nunca apocalíptico, sempre
+reconstruível) e a ameaça vem do tamanho do que a bomba acende.
+
+## M5 — Bombardeio (próximo)
+
+- [ ] Raio de ignição ~5 (ver tabela acima: é o que define a ameaça)
 - [ ] `src/sim/bombs.js`: agendador 15–30s aleatório
 - [ ] Bombas por evento = `min(1 + floor(elapsed/60), 5)`
 - [ ] Escolha de alvo: aleatório, com penalidade em raio ao redor do último foco

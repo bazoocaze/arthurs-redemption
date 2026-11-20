@@ -5,6 +5,7 @@
 // viewport. Sombras vão num único path (1 fill) por baixo de tudo.
 import { TILE_W, TILE_H, ORIGIN_X, COLORS, SPECIES, RENDER } from '../config.js';
 import { groveSizeAt } from '../grove.js';
+import { STATE } from '../grid.js';
 import { hash2 } from '../rng.js';
 import { getSprite, SPRITE_ZOOM } from './sprites.js';
 
@@ -97,8 +98,20 @@ export function drawTrees(ctx, grid, cam) {
 
   // A sombra já vem embutida no sprite (ver sprites.js).
 
+  // Árvore em chamas não mostra a copa verde: o sprite da árvore seria uma
+  // mentira visual (ela está sendo consumida). Vira uma tora escura, batchada
+  // num único path.
+  let charPath = null;
   for (let k = 0; k < itemCount; k++) {
     const it = items[k];
+    if (grid.state[grid.idx(it.x, it.y)] === STATE.BURNING) {
+      if (!charPath) charPath = new Path2D();
+      const w = it.size > 1 ? it.size * 0.8 : 0.5;
+      charPath.rect(it.x + 0.5 - w / 2, it.y + 0.5 - w / 2, w, w);
+      it.chared = true;
+      continue;
+    }
+    it.chared = false;
     const spr = getSprite(it.sp, it.size);
     // jitter só em árvore solta: 1 drawImage por árvore
     const k2 = (z / SPRITE_ZOOM) * (it.size === 1 ? it.jit : 1);
@@ -109,6 +122,14 @@ export function drawTrees(ctx, grid, cam) {
       spr.w * k2,
       spr.h * k2,
     );
+  }
+
+  if (charPath) {
+    ctx.save();
+    ctx.transform(HW * z, HH * z, -HW * z, HH * z, (ORIGIN_X - cam.x) * z, -cam.y * z);
+    ctx.fillStyle = COLORS.charred;
+    ctx.fill(charPath);
+    ctx.restore();
   }
 
   return itemCount;

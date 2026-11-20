@@ -4,11 +4,14 @@
 import { TILE_W, TILE_H, GRID_W, GRID_H, WORLD_W, WORLD_H, GEN } from '../src/config.js';
 import { tileWorldX, tileWorldY, tileCenterY, worldToTile } from '../src/iso.js';
 import { generateWorld } from '../src/generator.js';
-import { TERRAIN, STATE } from '../src/grid.js';
+import { Grid, TERRAIN, STATE } from '../src/grid.js';
 import { mulberry32, hash2 } from '../src/rng.js';
 import { plantTree, paintWaterTile, waterPaintCost, applyBrush, strokePath, canPlant } from '../src/sim/paint.js';
 import { groveSizeAt, blockMatches } from '../src/grove.js';
-import { WATER } from '../src/config.js';
+import { WATER, FIRE, FIRE_CHANCE } from '../src/config.js';
+import {
+  ignite, igniteRadius, stepFire, soak, sprayTile, sprayBrush, extinguish, expectedR0,
+} from '../src/sim/fire.js';
 
 let failures = 0;
 function check(name, fn) {
@@ -220,6 +223,222 @@ check('strokePath cobre a linha sem repetir o início', () => {
   assert(path[3].x === 4 && path[3].y === 0, 'não chegou no destino');
   const diag = strokePath({ x: 0, y: 0 }, { x: 3, y: 3 });
   assert(diag.length === 3 && diag[2].x === 3 && diag[2].y === 3, 'diagonal errada');
+});
+
+
+console.log('fogo — balanceamento');
+check('R0 alvo fica abaixo de 1 na densidade de 90%', () => {
+  const r0 = expectedR0(0.9);
+  assert(r0 < 1, `R0 ${r0.toFixed(3)} deveria ser < 1`);
+  assert(r0 > 0.5, `R0 ${r0.toFixed(3)} baixo demais: fogo nunca ameaça`);
+});
+check('R0 cresce com a densidade e continua < 1 em 100%', () => {
+  const sparse = expectedR0(0.3);
+  const dense = expectedR0(1);
+  assert(dense > sparse, 'denso deveria ter R0 maior');
+  assert(dense < 1.05, `R0 em densidade total ${dense.toFixed(3)} passou do limite`);
+});
+check('chance derivada bate com FIRE_CHANCE', () => {
+  const esperado = FIRE.r0Target / (FIRE.neighborsAtDense * FIRE.burnTime);
+  assert(Math.abs(FIRE_CHANCE - esperado) < 1e-12, 'FIRE_CHANCE fora da fórmula');
+});
+
+/** Grade pequena isolada: só serve para testar fogo, sem rios nem tons. */
+function fireGrid(w = 24, h = 24) {
+  const g = new Grid(w, h);
+  g.terrain.fill(TERRAIN.DIRT);
+  g.tone.fill(0);
+  for (let i = 0; i < g.distToWater.length; i++) {
+    g.distToWater[i] = 1;
+    g.waterSource[i] = -1;
+  }
+  g.landTiles = w * h;
+  g.landTotal = w * h;
+  return g;
+}
+
+function fillTrees(g, x0, y0, x1, y1) {
+  for (let y = y0; y <= y1; y++) {
+    for (let x = x0; x <= x1; x++) {
+      const i = g.idx(x, y);
+      if (g.terrain[i] !== TERRAIN.DIRT) continue;
+      g.tree[i] = 1;
+      g.species[i] = (x + y) % 4;
+      g.state[i] = STATE.IDLE;
+      g.treeCount++;
+    }
+  }
+}
+
+check('ignite acende árvore sã e atualiza contadores', () => {
+  const g = fireGrid();
+  fillTrees(g, 5, 5, 15, 15);
+  assert(ignite(g, 10, 10, 1) === true, 'deveria acender');
+  assert(g.state[g.idx(10, 10)] === STATE.BURNING, 'estado não virou BURNING');
+  assert(g.burningCount === 1, `burningCount ${g.burningCount}`);
+  assert(g.burningTiles.length === 1, 'lista de focos desincronizada');
+  assert(g.fireHp[g.idx(10, 10)] >= FIRE.hpMin, 'fireHp abaixo do mínimo');
+});
+check('ignite não pega terra vazia, água nem cinza', () => {
+  const g = fireGrid();
+  fillTrees(g, 5, 5, 8, 8);
+  assert(ignite(g, 20, 20, 1) === false, 'terra vazia não deveria pegar');
+  g.terrain[g.idx(6, 6)] = TERRAIN.WATER;
+  g.tree[g.idx(6, 6)] = 0;
+  assert(ignite(g, 6, 6, 1) === false, 'água não deveria pegar');
+  g.state[g.idx(7, 7)] = STATE.ASH;
+  g.tree[g.idx(7, 7)] = 0;
+  assert(ignite(g, 7, 7, 1) === false, 'cinza não deveria pegar');
+});
+
+console.log('fogo — propagação');
+check('fogo não atravessa tile de água', () => {
+  const g = fireGrid();
+  fillTrees(g, 5, 5, 25, 25);
+  // muralha de água separando 10,10 de 12,10
+  for (let y = 0; y < g.h; y++) {
+    const i = g.idx(11, y);
+    g.terrain[i] = TERRAIN.WATER;
+    g.tree[i] = 0;
+  }
+  ignite(g, 10, 10, 7);
+  for (let t = 0; t < 600; t++) stepFire(g, 1 / FIRE.tickRate, 7);
+  assert(g.state[g.idx(10, 10)] === STATE.ASH, 'lado de cá deveria ter queimado');
+  let queimouDoOutroLado = false;
+  for (let y = 0; y < g.h; y++) if (g.state[g.idx(12, y)] !== STATE.IDLE) queimouDoOutroLado = true;
+  assert(!queimouDoOutroLado, 'fogo atravessou a água');
+});
+check('incêndio grande termina em cinza sem sobrar foco', () => {
+  const g = fireGrid(32, 32);
+  fillTrees(g, 2, 2, 29, 29);
+  igniteRadius(g, 16, 16, 2, 3);
+  const inicial = g.burningCount;
+  assert(inicial > 0, 'nenhum foco acendeu');
+  for (let t = 0; t < 2000 && g.burningCount > 0; t++) stepFire(g, 1 / FIRE.tickRate, 3);
+  assert(g.burningCount === 0, `sobraram ${g.burningCount} focos`);
+  assert(g.ashCount > inicial, 'cinza deveria ter crescido');
+  assert(g.treeCount + g.ashCount === 28 * 28, `soma quebrada: ${g.treeCount}+${g.ashCount}`);
+});
+check('R0 < 1 na prática: foco isolado não devasta a floresta', () => {
+  const g = fireGrid(48, 48);
+  fillTrees(g, 1, 1, 46, 46);
+  const total = g.treeCount;
+  ignite(g, 24, 24, 11);
+  for (let t = 0; t < 4000 && g.burningCount > 0; t++) stepFire(g, 1 / FIRE.tickRate, 11);
+  const queimado = total - g.treeCount;
+  const frac = queimado / total;
+  assert(frac < 0.5, `fogo consumiu ${(frac * 100).toFixed(0)}% da floresta com R0 < 1`);
+  assert(queimado > 1, 'fogo não se espalhou nada (R0 baixo demais)');
+});
+check('umidade bloqueia a propagação (aceiro de spray)', () => {
+  const g = fireGrid(24, 24);
+  fillTrees(g, 4, 4, 20, 20);
+  for (let y = 0; y < g.h; y++) soak(g, 12, y, 9999);
+  ignite(g, 8, 12, 5);
+  for (let t = 0; t < 1500; t++) stepFire(g, 1 / FIRE.tickRate, 5);
+  for (let y = 0; y < g.h; y++) {
+    const j = g.idx(13, y);
+    if (g.terrain[j] !== TERRAIN.DIRT) continue;
+    assert(g.state[j] === STATE.IDLE, `fogo passou pelo aceiro em 13,${y}`);
+  }
+});
+check('mesma seed + mesmos ticks = mesmo incêndio', () => {
+  const run = () => {
+    const g = fireGrid(24, 24);
+    fillTrees(g, 2, 2, 21, 21);
+    igniteRadius(g, 12, 12, 2, 9);
+    for (let t = 0; t < 400; t++) stepFire(g, 1 / FIRE.tickRate, 9);
+    return Array.from(g.state).join('');
+  };
+  assert(run() === run(), 'simulação de fogo não é determinística');
+});
+
+console.log('fogo — água e cinzas');
+check('spray reduz fireHp e apaga salvando a árvore', () => {
+  const g = fireGrid();
+  fillTrees(g, 5, 5, 15, 15);
+  g.waterVol[g.idx(0, 0)] = 100;
+  g.waterTotal = 100;
+  g.waterTiles.push(g.idx(0, 0));
+  g.simTick = 0;
+  const i = g.idx(10, 10);
+  ignite(g, 10, 10, 1);
+  const hp = g.fireHp[i];
+  for (let k = 0; k < hp; k++) assert(sprayTile(g, 10, 10, 1) > 0, 'spray deveria cobrar');
+  assert(g.state[i] === STATE.IDLE, 'foco deveria estar apagado');
+  assert(g.tree[i] === 1, 'árvore deveria ter sido salva');
+  assert(g.burningCount === 0, `burningCount ${g.burningCount}`);
+});
+check('spray em foco com pouca água não faz efeito', () => {
+  const g = fireGrid();
+  fillTrees(g, 5, 5, 15, 15);
+  g.waterTotal = 0;
+  g.waterVol.fill(0);
+  ignite(g, 10, 10, 1);
+  assert(sprayTile(g, 10, 10, 1) === 0, 'não deveria cobrar sem água');
+  assert(g.state[g.idx(10, 10)] === STATE.BURNING, 'não deveria apagar');
+});
+check('spray custa mais longe do rio', () => {
+  const g = fireGrid();
+  fillTrees(g, 2, 2, 21, 21);
+  g.waterTotal = 1000;
+  g.waterVol[g.idx(0, 0)] = 1000;
+  g.waterTiles.push(g.idx(0, 0));
+  g.distToWater[g.idx(3, 3)] = 1;
+  g.distToWater[g.idx(20, 20)] = 18;
+  const perto = sprayTile(g, 3, 3, 1);
+  const longe = sprayTile(g, 20, 20, 1);
+  assert(perto === WATER.sprayCost, `perto ${perto} != ${WATER.sprayCost}`);
+  assert(longe > perto, `longe ${longe} deveria custar mais que perto ${perto}`);
+  assert(longe <= WATER.sprayMaxCost, `longe ${longe} estourou o teto`);
+});
+check('spray não cobra duas vezes pelo mesmo aceiro', () => {
+  const g = fireGrid();
+  fillTrees(g, 5, 5, 15, 15);
+  g.waterTotal = 100;
+  g.waterVol[g.idx(0, 0)] = 100;
+  g.waterTiles.push(g.idx(0, 0));
+  const primeiro = sprayBrush(g, 10, 10, 1, 1);
+  const segundo = sprayBrush(g, 10, 10, 1, 1);
+  assert(primeiro > 0, 'primeiro spray deveria custar');
+  assert(segundo === 0, `segundo spray cobrou ${segundo} de novo`);
+});
+check('cinza decai para terra replantável', () => {
+  const g = fireGrid();
+  fillTrees(g, 5, 5, 15, 15);
+  const i = g.idx(10, 10);
+  ignite(g, 10, 10, 1);
+  for (let t = 0; t < FIRE.burnTime * FIRE.tickRate + 2; t++) stepFire(g, 1 / FIRE.tickRate, 1);
+  assert(g.state[i] === STATE.ASH, 'deveria ser cinza após burnTime');
+  assert(g.treeCount === 120, `treeCount ${g.treeCount}`);
+  assert(canPlant(g, 10, 10) === false, 'cinza não deveria ser plantável ainda');
+  const ticks = Math.ceil(FIRE.ashSeconds * FIRE.tickRate) + 2;
+  for (let t = 0; t < ticks; t++) stepFire(g, 1 / FIRE.tickRate, 1);
+  assert(g.state[i] === STATE.IDLE, 'cinza deveria ter decaído');
+  assert(canPlant(g, 10, 10) === true, 'deveria ser replantável');
+});
+check('contadores incrementais batem com recount() após um incêndio', () => {
+  const g = fireGrid(32, 32);
+  fillTrees(g, 2, 2, 29, 29);
+  igniteRadius(g, 16, 16, 2, 21);
+  for (let t = 0; t < 900; t++) stepFire(g, 1 / FIRE.tickRate, 21);
+  const antes = { tree: g.treeCount, burning: g.burningCount, ash: g.ashCount };
+  g.recount();
+  assert(g.treeCount === antes.tree, `treeCount ${antes.tree} -> ${g.treeCount}`);
+  assert(g.burningCount === antes.burning, `burningCount ${antes.burning} -> ${g.burningCount}`);
+  assert(g.ashCount === antes.ash, `ashCount ${antes.ash} -> ${g.ashCount}`);
+  assert(g.burningTiles.length === g.burningCount, 'lista de focos fora de sincronia');
+  assert(g.ashTiles.length === g.ashCount, 'lista de cinza fora de sincronia');
+});
+check('umidade seca depois de wetSeconds', () => {
+  const g = fireGrid();
+  fillTrees(g, 5, 5, 8, 8);
+  soak(g, 6, 6, FIRE.wetSeconds);
+  assert(g.wet[g.idx(6, 6)] > 0, 'deveria estar molhado');
+  const ticks = Math.ceil(FIRE.wetSeconds * FIRE.tickRate) + 2;
+  for (let t = 0; t < ticks; t++) stepFire(g, 1 / FIRE.tickRate, 1);
+  assert(g.wet[g.idx(6, 6)] === 0, 'umidade deveria ter secado');
+  assert(g.wetTiles.length === 0, 'lista de molhados deveria estar vazia');
 });
 
 console.log(failures ? `\n${failures} falha(s)` : '\ntudo ok');

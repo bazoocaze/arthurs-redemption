@@ -52,9 +52,50 @@ export const WATER = {
   pondVolume: 1, // volume do tile criado ao pintar água
   paintBase: 2, // 2:1 encostado no rio (dist 1) — número pedido pelo autor
   paintDistFactor: 0.5, // custo = paintBase * (1 + (dist-1) * fator)
-  sprayCost: 1, // volume por aplicação de spray
-  sprayReach: 12,
+  sprayCost: 1, // volume por aplicação de spray encostado no rio
+  sprayDistFactor: 0.3, // spray longe do rio custa mais (transporte)
+  sprayMaxCost: 5, // teto do custo de transporte
 };
+
+// Fogo. O número que importa NÃO é a chance: é o R0.
+//
+//   R0 = vizinhos_de_árvore * chance_por_segundo * tempo_queimando
+//
+// Se R0 > 1 o fogo cresce sozinho e o objetivo de 90% de cobertura vira
+// impossível (a floresta que você precisa construir é o combustível). Com
+// chance derivada de R0 alvo e vizinhos ~7 (densidade 0,9), R0 fica < 1 mesmo no
+// fim do jogo; em floresta esparsa R0 cai junto com os vizinhos, então fogo em
+// área rala morre sozinho.
+//
+// Consequência medida (tools: 24 seeds, floresta densa): um foco queima
+// ~1/(1-R0) = 6,7 tiles. O incêndio NÃO corre sem limite — e é isso que torna o
+// jogo justo — mas também significa que foco pequeno é inofensivo. Quem define
+// "o quanto assusta" é o RAIO DE IGNIÇÃO da bomba (~focos / (1-R0) tiles),
+// não o R0. Medido, densidade 90%:
+//   raio 2 (~13 focos) => mediana 19, máx 43 tiles (0,6% da floresta)
+//   raio 3 (~29 focos) => mediana 42, máx 56 tiles (1,3%)
+//   raio 5 (~78 focos) => ~500 tiles (~6%) -> bomba de M5
+// A cauda é curta: com R0 < 1 não existe incêndio apocalíptico, então o jogador
+// sempre pode reconstruir o que perdeu.
+export const FIRE = {
+  r0Target: 0.85, // alvo de R0 na densidade de 90%
+  neighborsAtDense: 7, // vizinhos ocupados esperados com 90% de densidade
+  burnTime: 10, // segundos até a árvore virar cinza
+  hpMin: 3, // aplicações de spray para debelar um foco
+  hpMax: 5,
+  tickRate: 10, // ticks de simulação por segundo (fixo = determinístico)
+  wetSeconds: 8, // duração da umidade depois do spray
+  wetSpreadMul: 0.1, // vizinho molhado quase não pega fogo
+  ashSeconds: 60, // cinza -> terra replantável
+  smokePerBurning: 0.9, // partículas por segundo por foco
+  maxSmoke: 120, // orçamento de partículas (fumaça é o efeito mais caro)
+  maxFlames: 260, // orçamento de chamas desenhadas (acima disso, stride)
+  smokeLifeMin: 2.2,
+  smokeLifeMax: 4.5,
+};
+
+/** Chance de propagação por segundo, derivada do R0 alvo. */
+export const FIRE_CHANCE = FIRE.r0Target / (FIRE.neighborsAtDense * FIRE.burnTime);
 
 export const RENDER = {
   lodZoom: 0.45, // abaixo disso, árvores viram manchas por espécie (batch)
@@ -67,6 +108,15 @@ export const COLORS = {
   dirt: ['#5d4630', '#6b5136', '#7a5e3e', '#87694a'],
   // 2 tons de água (alternados no tempo para dar ondulação)
   water: ['#2b6076', '#33718a'],
+  // 4 tons de cinza (terra queimada), do mais escuro ao mais claro. Mesma
+  // quantidade que a terra: a cicatriz tem textura em vez de virar um buraco
+  // preto chapado, e lê como "lugar a replantar".
+  ash: ['#2b261f', '#383228', '#453e31', '#52493a'],
+  // fogo: base escura, meio laranja, núcleo claro (3 paths por frame)
+  fire: ['#b03a12', '#f2812c', '#ffd05a'],
+  charred: '#241d16', // copa consumida pelo fogo
+  smoke: 'rgba(26, 22, 18, 0.42)',
+  wetTint: 'rgba(120, 160, 190, 0.13)',
   highlightFill: 'rgba(255, 244, 214, 0.16)',
   highlightStroke: 'rgba(255, 244, 214, 0.55)',
   shadow: 'rgba(28, 18, 10, 0.28)',

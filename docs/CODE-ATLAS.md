@@ -61,6 +61,8 @@ Regra de ouro: **a simulação não conhece pixels; o render não conhece regras
 | `src/render/overlay.js` | ✅ | highlight e preview do brush | regras |
 | `src/grove.js` | ✅ | detecção de bloco NxN da mesma espécie (puro, testável) | canvas |
 | `src/sim/paint.js` | ✅ | plantar, alagar, brush, trilha, drenagem do rio | render |
+| `src/sim/fire.js` | ✅ | ignição, propagação (R0), spray, cinza, umidade | render |
+| `src/render/fire.js` | ✅ | chamas (sprites + halo), fumaça com orçamento | simulação |
 | `src/ui.js` | ✅ | palheta, HUD, atalhos | simulação |
 | `src/sim/fire.js` | ⏳ | ignição, propagação, extinção, cinzas, decaimento | áudio/partículas |
 | `src/sim/bombs.js` | ⏳ | agendador de eventos, alvos, voo, impacto | desenho das partículas |
@@ -155,6 +157,42 @@ queimar um tile, olhar a janela 5x5 e decidir se o tile pertence a um cluster
 (moita/bosque) em vez de N árvores individuais, e o chunk é invalidado
 normalmente.
 
+## 5b. Fluxo do fogo (`sim/fire.js`)
+
+Tick fixo de 1/`FIRE.tickRate` (10/s), nunca `dt` variável — é o que torna o
+incêndio determinístico e testável sem browser. Cada tick, em ordem:
+
+1. **Propagação**: para cada foco, 8 vizinhos com árvore sã recebem sorteio
+   `hash2(vizinho, tick*8+n, seed) < FIRE_CHANCE * dt * (molhado ? 0,1 : 1)`.
+   Os aprovados vão para uma lista `pending` — sem isso o fogo correria vários
+   tiles no mesmo tick (BFS instantânea).
+2. **Envelhecer**: `burnT += dt`; ao chegar em `FIRE.burnTime` o tile vira cinza
+   (`toAsh`: `treeCount--`, `ashCount++`).
+3. **Acender** o que a fase 1 aprovou.
+4. **Cinzas** decaem (`ashT += dt`); ao chegar em `FIRE.ashSeconds` voltam a ser
+   terra replantável.
+5. **Umidade** seca (`wet -= dt`).
+
+`R0 = vizinhos × FIRE_CHANCE × burnTime`. Com `r0Target = 0,85` e 7 vizinhos a
+90% de densidade, um foco consome `1/(1-R0) ≈ 6,7` tiles: o fogo tem **teto**.
+Consequência de design: quem define a ameaça é o **raio de ignição** da bomba,
+não o R0 (tabela medida em `BACKLOG.md` M4).
+
+**Spray** (`sprayTile`) é a ferramenta 💧 aplicada a árvore/foco: custa
+`sprayCost * (1 + (dist-1) * 0,3)` (teto 5), molha o tile por 8s e reduz
+`fireHp`. Zerar o HP **salva a árvore** (não vira cinza). Em terra vazia, a mesma
+ferramenta cava lago — daí a dica do HUD mudar com a ferramenta.
+
+### Render do fogo
+
+| decisão | porquê |
+| --- | --- |
+| chama é sprite pré-renderizado (4 quadros) | triângulos em path eram baratos e feios |
+| halo assado **dentro** do sprite | `globalCompositeOperation = 'lighter'` por foco derrubou 43 → 21 fps |
+| fumaça com teto de 120 partículas | é o efeito mais caro (alpha + escala) |
+| chamas com `stride` acima de 260 focos | num incêndio grande a diferença é nula |
+| árvore em chamas não desenha a copa verde | vira tora escura batchada num path |
+
 ## 6. Tunables (`config.js`)
 
 | Chave | Valor inicial | Nota |
@@ -186,6 +224,18 @@ normalmente.
 | `WATER.paintBase` | 2 | custo de alagar encostado no rio (2:1) |
 | `WATER.paintDistFactor` | 0.5 | custo = `base * (1 + (dist-1) * fator)` |
 | `WATER.pondVolume` | 1 | volume do tile alagado |
+| `FIRE.r0Target` | 0.85 | R0 alvo a 90% de densidade (não passar de 1) |
+| `FIRE.burnTime` | 10 s | tempo de queima até virar cinza |
+| `FIRE.hpMin/hpMax` | 3 / 5 | aplicações de spray para debelar |
+| `FIRE.tickRate` | 10 /s | tick fixo da simulação de fogo |
+| `FIRE.wetSeconds` | 8 s | duração do aceiro molhado |
+| `FIRE.wetSpreadMul` | 0.1 | chance de pegar em tile molhado |
+| `FIRE.ashSeconds` | 60 s | cinza → terra replantável |
+| `FIRE.maxSmoke` | 120 | orçamento de partículas |
+| `FIRE.maxFlames` | 260 | orçamento de chamas desenhadas |
+| `WATER.sprayCost` | 1 | volume por spray encostado no rio |
+| `WATER.sprayDistFactor` | 0.3 | custo de transporte do spray |
+| `WATER.sprayMaxCost` | 5 | teto do custo de spray |
 | `RENDER.lodZoom` | 0.45 | abaixo disso árvores viram manchas |
 | `RENDER.groveMax` | 3 | maior bloco agrupado |
 | `SPECIES` | 4 | pinheiro, folhosa, bétula, oliveira (h/w/copas/tronco) |
@@ -262,6 +312,15 @@ com `redraw 3%` significa que o loop está ocioso, não que o render é rápido.
 
 `?seed=N` fixa o PRNG. `window.__game` expõe `grid`, `camera`, `state`, `stats`,
 `hooks` e `seed` para inspeção no console e para os probes.
+
+## 9b. Cobertura de testes (`tools/check.mjs`)
+
+33 checks, todos sem browser: matemática iso (roundtrip 9216 tiles), gerador
+determinístico, invariantes de contador, BFS de distância à água, custo de
+pintura, groves, trilha de brush, e — desde M4 — R0 dentro do alvo, água como
+barreira intransponível, aceiro de spray, debelar salvando a árvore, cinza
+voltando a ser terra, determinismo do incêndio e sincronia das listas de
+trabalho.
 
 ## 10. Comandos e verificação
 

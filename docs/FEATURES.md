@@ -7,9 +7,10 @@ Legenda: ✅ funcionando · 🧪 implementado mas sem verificação visual · �
 
 ## Estado atual
 
-**M1 + M2 (dirty/otimizações) + M3 + M3b concluídos** — mundo isométrico
-navegável, floresta de 4 espécies com agrupamento visual e pintura de água que
-drena o rio. Ainda não há fogo, bombas, áudio nem save.
+**M1 + M2 + M3 + M3b + M4 concluídos** — mundo isométrico navegável, floresta de
+4 espécies, pintura de água que drena o rio, e **fogo** com propagação
+balanceada, spray para apagar e cinzas que voltam a ser terra. Ainda não há
+bombas, áudio nem save.
 
 ## Infra / projeto
 
@@ -60,6 +61,22 @@ drena o rio. Ainda não há fogo, bombas, áudio nem save.
 | LOD: abaixo de 0.45× de zoom vira mancha por espécie | ✅ | 4 paths por frame |
 | Sprites pré-renderizados com sombra embutida | ✅ | 1 `drawImage` por árvore |
 
+## Fogo
+
+| Feature | Status | Observações |
+| --- | --- | --- |
+| Ignição por raio (bomba/debug) | ✅ | `igniteRadius`; debug acende com `I` sob o cursor |
+| Propagação 8-vizinhos em tick fixo (10/s) | ✅ | determinística: `hash2(tile, tick, seed)` |
+| R0 derivado de configuração, alvo 0,85 a 90% de densidade | ✅ | `FIRE.r0Target`; R0 cai em floresta rala |
+| Fogo não atravessa água | ✅ | testado, inclusive na diagonal |
+| Cada foco queima 10s e vira cinza | ✅ | `FIRE.burnTime` |
+| `fireHp` 3–5: spray reduz, zerar **salva** a árvore | ✅ | árvore não vira cinza se debelada |
+| Spray molha por 8s e serve de aceiro | ✅ | umidade corta a chance para 10% |
+| Cinza por 60s → terra replantável | ✅ | `FIRE.ashSeconds` |
+| Chamas com sprite + halo, fumaça com teto de 120 partículas | ✅ | `render/fire.js` |
+| Pílula 🔥 no HUD com número de focos | ✅ | pisca enquanto há fogo |
+| 💧 contextual: apaga / molha / cava lago | ✅ | a dica muda com a ferramenta |
+
 ## HUD
 
 | Feature | Status | Observações |
@@ -93,7 +110,6 @@ Otimizações que produziram isso: `Path2D.rect` em espaço de tile com matriz i
 
 | Feature | Status | Milestone |
 | --- | --- | --- |
-| Fogo, agua no incêndio (spray), cinzas | ❌ | M4 |
 | Bombardeio | ❌ | M5 |
 | Áudio procedural | ❌ | M6 |
 | Save/retomada (localStorage) | ❌ | M7 |

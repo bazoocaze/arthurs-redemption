@@ -7,10 +7,12 @@
 //   screen = [ HW  -HW ] * (x, y) + translação
 //            [ HH   HH ]
 //
-// Custo medido no Chromium: 35 ms -> 4 ms para os 9216 tiles com o mundo
-// inteiro visível (o gargalo é a quantidade de chamadas nativas, não o fill).
+// Custo medido (CODE-ATLAS §11): losango com 5 chamadas por tile custava 163 ms
+// para o mundo inteiro; `rect` com matriz custa 3 ms. O gargalo era a
+// COMPLEXIDADE do path (9216 contornos de 4 segmentos), não a contagem de
+// chamadas.
 import { TILE_W, TILE_H, ORIGIN_X, COLORS, TIME } from '../config.js';
-import { TERRAIN } from '../grid.js';
+import { TERRAIN, STATE } from '../grid.js';
 
 const HW = TILE_W / 2;
 const HH = TILE_H / 2;
@@ -21,9 +23,12 @@ export function drawTerrain(ctx, grid, cam, time) {
   const vh = cam.viewH;
   const nDirt = COLORS.dirt.length;
   const nWater = COLORS.water.length;
+  const nAsh = COLORS.ash.length;
+  const nPaths = nDirt + nWater + nAsh;
 
   const paths = [];
-  for (let i = 0; i < nDirt + nWater; i++) paths.push(new Path2D());
+  for (let i = 0; i < nPaths; i++) paths.push(new Path2D());
+  let wetPath = null; // só criado se houver tile molhado visível
 
   const hwz = HW * z;
   const hhz = HH * z;
@@ -46,19 +51,33 @@ export function drawTerrain(ctx, grid, cam, time) {
 
       drawn++;
       const i = y * grid.w + x;
+      const st = grid.state[i];
       if (grid.terrain[i] === TERRAIN.WATER) {
         paths[nDirt + (((x + y + shimmer) & 3) < 2 ? 0 : 1)].rect(x - e, y - e, size, size);
+      } else if (st === STATE.BURNING || st === STATE.ASH) {
+        // terra queimada: tom de cinza (cinza e foco aceso compartilham o tom)
+        paths[nDirt + nWater + (grid.tone[i] % nAsh)].rect(x - e, y - e, size, size);
       } else {
         paths[grid.tone[i]].rect(x - e, y - e, size, size);
+        if (grid.wet[i] > 0) {
+          if (!wetPath) wetPath = new Path2D();
+          wetPath.rect(x - e, y - e, size, size);
+        }
       }
     }
   }
 
   ctx.save();
   ctx.transform(hwz, hhz, -hwz, hhz, tx, ty);
-  for (let i = 0; i < paths.length; i++) {
-    ctx.fillStyle = i < nDirt ? COLORS.dirt[i] : COLORS.water[i - nDirt];
+  for (let i = 0; i < nPaths; i++) {
+    if (i < nDirt) ctx.fillStyle = COLORS.dirt[i];
+    else if (i < nDirt + nWater) ctx.fillStyle = COLORS.water[i - nDirt];
+    else ctx.fillStyle = COLORS.ash[i - nDirt - nWater];
     ctx.fill(paths[i]);
+  }
+  if (wetPath) {
+    ctx.fillStyle = COLORS.wetTint;
+    ctx.fill(wetPath);
   }
   ctx.restore();
 

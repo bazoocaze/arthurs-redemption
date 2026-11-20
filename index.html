@@ -156,6 +156,28 @@
       }
 
       /* ---- perf / debug / hint ---- */
+      #fire-pill {
+        position: fixed;
+        top: 48px;
+        right: 12px;
+        display: none;
+        align-items: center;
+        gap: 5px;
+        padding: 4px 9px;
+        border-radius: 999px;
+        background: rgba(120, 26, 8, 0.86);
+        color: #ffd8a8;
+        font: 700 12px/1 ui-monospace, monospace;
+        pointer-events: none;
+        animation: firePulse 1s ease-in-out infinite;
+      }
+      #fire-pill.on {
+        display: flex;
+      }
+      @keyframes firePulse {
+        0%, 100% { box-shadow: 0 0 0 rgba(255, 120, 40, 0); }
+        50% { box-shadow: 0 0 12px rgba(255, 120, 40, 0.55); }
+      }
       #perf {
         position: fixed;
         top: 8px;
@@ -220,6 +242,8 @@
   </head>
   <body data-tool="tree">
     <canvas id="game"></canvas>
+    <div id="fire-pill"><span>🔥</span><span id="fire-count">0</span></div>
+
     <div id="perf" title="fps · % de frames redesenhados · tecla ` alterna"></div>
     <div id="debug"></div>
 

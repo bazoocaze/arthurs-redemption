@@ -1,6 +1,6 @@
 // Bootstrap e loop principal. Aqui vive a ordem de update/render: simulação não
 // conhece pixels, render não conhece regras.
-import { COLORS, TIME, BRUSH } from './config.js';
+import { COLORS, TIME, BRUSH, FIRE } from './config.js';
 import { generateWorld } from './generator.js';
 import { Camera } from './camera.js';
 import { createInput } from './input.js';
@@ -8,7 +8,9 @@ import { drawTerrain } from './render/terrain.js';
 import { drawTrees } from './render/trees.js';
 import { prebuildSprites } from './render/sprites.js';
 import { drawBrush } from './render/overlay.js';
+import { createFx, updateFx, drawFx } from './render/fire.js';
 import { applyBrush, strokePath } from './sim/paint.js';
+import { stepFire, igniteRadius } from './sim/fire.js';
 import { createUi } from './ui.js';
 
 const params = new URLSearchParams(location.search);
@@ -21,6 +23,7 @@ const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d', { alpha: false });
 
 const { grid } = generateWorld(SEED);
+const fx = createFx();
 const camera = new Camera();
 const state = {
   grid,
@@ -80,6 +83,15 @@ const hooks = {
     state.tool = tool;
     ui.refreshTool();
     dirty = true;
+  },
+  /** Debug/teste: acende fogo em disco. Em M5 quem chama é a bomba. */
+  ignite(x, y, radius = 4) {
+    const lit = igniteRadius(grid, x, y, radius, SEED);
+    if (lit) {
+      dirty = true;
+      ui.updateHud();
+    }
+    return lit;
   },
   setBrushRadius(r) {
     state.brushRadius = r;
@@ -158,6 +170,7 @@ function updateDebug(dt) {
     `tile ${h ? `${h.x},${h.y}` : '—'}`,
     `árvores ${grid.treeCount}/${grid.landTotal} (${(grid.coverage() * 100).toFixed(1)}%)`,
     `água ${grid.waterCount} tiles · vol ${grid.waterTotal.toFixed(0)}`,
+    `fogo ${grid.burningCount} focos · cinza ${grid.ashCount} · fumaça ${fx.smoke.length}`,
     `seed ${SEED}`,
     `frames ${stats.frames} · pulados ${stats.framesSkipped} (redraw ${allPct}% no total)`,
   ].join('\n');
@@ -176,12 +189,32 @@ function needsFrame() {
     lastHoverKey = hk;
     return true;
   }
+  if (grid.burningCount > 0 || fx.smoke.length > 0 || grid.wetTiles.length > 0) return true;
   const shimmer = Math.floor(time * TIME.waterShimmerHz);
   if (shimmer !== lastShimmer) {
     lastShimmer = shimmer;
     return true;
   }
   return false;
+}
+
+// --- fogo: passo fixo -------------------------------------------------------
+// Tick fixo (não dt variável) para o incêndio ser determinístico: mesma seed +
+// mesma sequência de acertos => mesmo resultado, o que torna o fogo testável
+// sem browser. O guard limita o trabalho depois de uma aba em background.
+const FIRE_DT = 1 / FIRE.tickRate;
+let fireAcc = 0;
+
+function updateFire(dt) {
+  fireAcc += dt;
+  let guard = 0;
+  while (fireAcc >= FIRE_DT && guard++ < 8) {
+    fireAcc -= FIRE_DT;
+    stepFire(grid, FIRE_DT, SEED);
+  }
+  if (fireAcc > FIRE_DT * 8) fireAcc = 0;
+  updateFx(fx, grid, dt);
+  if (grid.burningCount > 0) dirty = true; // fogo anima: redesenha todo frame
 }
 
 function render() {
@@ -192,6 +225,7 @@ function render() {
   stats.drawnTiles = drawTerrain(ctx, grid, camera, time);
   const t2 = performance.now();
   stats.drawnTrees = drawTrees(ctx, grid, camera);
+  drawFx(ctx, grid, camera, time, fx);
   const t3 = performance.now();
   if (state.hover && state.tool !== 'pan') {
     drawBrush(ctx, grid, camera, state.hover.x, state.hover.y, state.brushRadius);
@@ -210,6 +244,7 @@ function frame(ts) {
   time += dt;
 
   input.update(dt);
+  updateFire(dt);
 
   const redrawn = dirty || needsFrame();
   if (redrawn) {
@@ -236,6 +271,11 @@ function applyDbgMode() {
 // ` cicla escondido -> chip de fps -> painel completo. Não usamos F3: no
 // Chrome/Firefox F3 é "localizar próxima".
 window.addEventListener('keydown', (e) => {
+  // I acende fogo no tile sob o cursor (só com debug aberto; M5 traz as bombas)
+  if ((e.key === 'i' || e.key === 'I') && dbgMode === 2 && state.hover) {
+    hooks.ignite(state.hover.x, state.hover.y, 4);
+    return;
+  }
   if (e.key !== '`' || e.ctrlKey || e.metaKey) return;
   e.preventDefault();
   dbgMode = (dbgMode + 1) % 3;
@@ -247,4 +287,4 @@ applyDbgMode();
 requestAnimationFrame(frame);
 
 // Hook de inspeção manual no console (usado pelos probes headless).
-window.__game = { grid, camera, state, stats, hooks, seed: SEED };
+window.__game = { grid, camera, state, stats, hooks, fx, seed: SEED };

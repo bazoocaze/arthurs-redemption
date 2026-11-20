@@ -45,6 +45,10 @@ Verificação de UI é feita com `tools/probe.mjs` (Chromium headless via CDP):
 ele reporta exceções/console, avalia JS e salva screenshot. Sempre rodar
 `check.mjs` + `probe.mjs` antes de marcar tarefa como concluída.
 
+**Teclas**: `1`/`2`/`3` ferramenta · `[`/`]` raio do pincel · `F` enquadra ·
+setas/WASD movem · `` ` `` alterna perf/painel · `I` acende fogo no cursor
+(só com `?debug=1`, provisório até M5).
+
 **Métrica de perf**: `window.__game.stats` traz `fps`, `redrawPct`, `redrawHz`
 (fração de frames redesenhados na última janela de 0,5 s) e o custo por camada
 (`terrainMs`, `treesMs`, `overlayMs`). Ela, não o fps, diz se há trabalho por
