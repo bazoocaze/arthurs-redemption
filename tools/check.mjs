@@ -18,6 +18,7 @@ import {
 import { encodeState, saveGame, readSave, clearSave, SAVE_KEY } from '../src/save.js';
 import {
   PHASE, createGame, checkEnd, endGame, computeScore, gradeFor, updateRecords, loadRecords,
+  endMessage, VICTORY_MESSAGES, DROUGHT_MESSAGES,
 } from '../src/game.js';
 import { BOMB } from '../src/config.js';
 
@@ -760,6 +761,38 @@ check('recordes: vitória grava, derrota não', () => {
   const d = endGame(game2, g, 5, PHASE.DROUGHT);
   const r3 = updateRecords(d, store);
   assert(!r3.novos.score && !r3.novos.fastest, 'derrota não pode gravar recorde');
+});
+
+
+check('frases finais: 4 de vitória, 3 de derrota, todas citam o Arthur', () => {
+  assert(VICTORY_MESSAGES.length === 4, `vitória tem ${VICTORY_MESSAGES.length}`);
+  assert(DROUGHT_MESSAGES.length === 3, `derrota tem ${DROUGHT_MESSAGES.length}`);
+  for (const f of [...VICTORY_MESSAGES, ...DROUGHT_MESSAGES]) {
+    assert(/arthur/i.test(f), `frase sem o Arthur: ${f}`);
+  }
+});
+check('sorteio de frase nunca sai da lista e não repete em sequência', () => {
+  const v = { phase: PHASE.VICTORY };
+  const d = { phase: PHASE.DROUGHT };
+  let anterior = null;
+  let repetiu = 0;
+  for (let k = 0; k < 300; k++) {
+    const f = endMessage(v);
+    assert(VICTORY_MESSAGES.includes(f), `frase de vitória inválida: ${f}`);
+    if (f === anterior) repetiu++;
+    anterior = f;
+    const g = endMessage(d);
+    assert(DROUGHT_MESSAGES.includes(g), `frase de derrota inválida: ${g}`);
+  }
+  assert(repetiu === 0, `repetiu ${repetiu} vezes seguidas`);
+});
+check('sorteio é uniforme (todas as frases aparecem)', () => {
+  const v = { phase: PHASE.VICTORY };
+  const vistas = new Set();
+  for (let k = 0; k < 200; k++) vistas.add(endMessage(v, () => 0.999));
+  // rng fixo cai sempre na última; com o desvio anti-repetição as outras aparecem
+  for (let k = 0; k < 200; k++) vistas.add(endMessage(v));
+  assert(vistas.size === VICTORY_MESSAGES.length, `só ${vistas.size} frases saíram`);
 });
 
 console.log(failures ? `\n${failures} falha(s)` : '\ntudo ok');

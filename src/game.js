@@ -159,13 +159,42 @@ function safeStorage() {
   }
 }
 
-/** Mensagens da tela final. Satíricas, curtas, falando com o Arthur. */
-export function endMessage(result) {
-  if (result.phase === PHASE.VICTORY) {
-    const rapido = result.stats.elapsed <= GAME.parSeconds;
-    return rapido
-      ? 'Arthur plantou rápido e o mapa inteiro respira. Ninguém viu, mas aconteceu.'
-      : 'Arthur chegou aos 90%. Demorou, discutiu com o vento, mas chegou.';
+// --- mensagens da tela final ----------------------------------------------
+// Tom: frase curta, direta, sem piada de guarda-chuva — a graça está em levar o
+// Arthur a sério (ou em ele se explicando).
+export const VICTORY_MESSAGES = [
+  'A floresta foi salva, e o Arthur se redimiu.',
+  'O Arthur venceu fogo e bombas.',
+  'O fogo passou, as cinzas viraram terra, e o Arthur terminou o que começou.',
+  'O Arthur não deixou o fogo ganhar. Dessa vez não.',
+];
+
+export const DROUGHT_MESSAGES = [
+  'A água acabou e o fogo continua. Arthur jura que estava quase terminando.',
+  'Arthur gastou o rio inteiro num lago decorativo. O fogo mandou lembranças.',
+  'O mapa virou carvão. Arthur agora planta no save dos outros.',
+];
+
+// Última frase usada por lista: evita repetir a mesma duas partidas seguidas.
+// Fica em memória de propósito (não persiste) — recarregar zera.
+const ultimaFrase = new WeakMap();
+
+/**
+ * Sorteia uma frase da fase. Só repete quando a lista tem 1 item: se o sorteio
+ * cair na anterior, desloca para uma das outras, mantendo distribuição uniforme.
+ */
+export function endMessage(result, rng = Math.random) {
+  const lista = result.phase === PHASE.VICTORY ? VICTORY_MESSAGES : DROUGHT_MESSAGES;
+  return pickMessage(lista, rng);
+}
+
+export function pickMessage(lista, rng = Math.random) {
+  const anterior = ultimaFrase.get(lista);
+  let i = Math.floor(rng() * lista.length) % lista.length;
+  if (anterior !== undefined && lista.length > 1 && i === anterior) {
+    // anda de 1 a len-1 posições: cai uniformemente em qualquer outra
+    i = (i + 1 + Math.floor(rng() * (lista.length - 1))) % lista.length;
   }
-  return 'A água acabou e o fogo continua. Arthur disse que estava quase terminando.';
+  ultimaFrase.set(lista, i);
+  return lista[i];
 }

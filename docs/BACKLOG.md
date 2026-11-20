@@ -182,7 +182,8 @@ reconstruível) e a ameaça vem do tamanho do que a bomba acende.
 - [x] `waterVol` por tile + spray debita do rio mais próximo (custo por distância)
 - [x] Cobertura = árvores / `landTotal` (meta 90%)
 - [x] Transições: `playing` → `victory` (90%) | `drought` (água zerada **e** fogo ativo)
-- [x] Tela final satírica com mensagem para o Arthur
+- [x] Tela final satírica: 4 frases de vitória + 3 de derrota, sorteadas
+      (`pickMessage` não repete a anterior)
 - [x] Sim e pintura congelam ao fim da partida
 
 ### Decisões

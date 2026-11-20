@@ -102,6 +102,7 @@ spray e cinzas, bombardeio com voo visível e explosão, e **áudio procedural**
 | Derrota: água zerada **e** fogo ativo | ✅ | "secou" |
 | Sim e pintura congelam ao fim | ✅ | partícula em voo termina |
 | Tela final: nota grande, stats por ícone, mensagem | ✅ | S/A/B/C/D e F na derrota |
+| 4 frases de vitória e 3 de derrota, sorteadas | ✅ | sem repetir a da partida anterior |
 | Pontuação 1000·cob + 500·água + 500·rapidez | ✅ | máx 2000 |
 | Recordes em localStorage | ✅ | `ar.records` (só vitórias) |
 | Partida encerrada não é salva | ✅ | recarregar começa outra |

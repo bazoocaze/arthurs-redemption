@@ -293,7 +293,10 @@ playing ──(cobertura ≥ 90%)──────────► victory
   piada, não um cálculo).
 - `updateRecords(result)`: grava só vitórias em `ar.records`
   (`bestScore`, `bestCoverage`, `fastestWin`) e devolve quais recordes caíram.
-- `endMessage(result)`: duas variantes de vitória (rápida/lenta) e uma de seca.
+- `endMessage(result)`: sorteia entre `VICTORY_MESSAGES` (4) e `DROUGHT_MESSAGES`
+  (3). `pickMessage` evita repetir a frase da partida anterior (WeakMap em
+  memória, zera ao recarregar) deslocando o índice sorteado — a distribuição
+  continua uniforme.
 
 No `main.js`, `finish(result)` mostra a tela, grava recordes e liga
 `saveDescartado` (a partida acabou: recarregar começa outra).
