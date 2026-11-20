@@ -76,15 +76,20 @@ export const WATER = {
 // correção de uma estimativa antiga (~500 tiles por impacto) está em
 // docs/BACKLOG.md — ela nunca se confirmou numa medição.
 export const FIRE = {
-  // R0 na densidade de 90%. Subiu de 0,85 para 1,105 (o "30% mais propagação":
-  // chance por segundo × 1,3). Efeito medido em 16 seeds, bomba raio 5:
-  //   densidade 25%: 18 -> 18 tiles (nada: ali só há ~2 vizinhos por tile)
-  //   densidade 90%: 84 -> 91 tiles, duração 30 -> 36 s
-  // R0 > 1 em floresta cheia é supercrítico: o incêndio não morre sozinho, só
-  // para na água ou na borda rala. Em 25% de densidade continua subcrítico.
-  r0Target: 1.105,
+  // R0 na densidade de 90%. Fica em 0,85: o fogo tem teto, sempre reconstruível.
+  //
+  // O "fogo andar mais rápido" NÃO se faz por aqui. Subir a chance em 30% (R0
+  // 1,105) mudou pouco, porque a propagação é limitada por adjacência: medido
+  // em 16 seeds, densidade 25% ficou 18 -> 18 tiles e 90% foi 84 -> 91.
+  // Quem controla a velocidade da frente é o burnTime (abaixo).
+  r0Target: 0.85,
   neighborsAtDense: 7, // vizinhos ocupados esperados com 90% de densidade
-  burnTime: 10, // segundos até a árvore virar cinza
+  // Segundos até a árvore virar cinza. A frente de fogo avança ~1 tile por
+  // burnTime (um tile só passa fogo enquanto está queimando), então este é o
+  // botão da VELOCIDADE. 10 -> 7 s deixa a frente ~20% mais rápida mantendo a
+  // área queimada: medido em 16 seeds, raio 5, densidade 90%: 87 tiles em 25 s
+  // (antes 84 em 30 s); densidade 25%: 18 tiles em 8 s (antes 11 s).
+  burnTime: 7,
   hpMin: 3, // aplicações de spray para debelar um foco
   hpMax: 5,
   tickRate: 10, // ticks de simulação por segundo (fixo = determinístico)

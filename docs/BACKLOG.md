@@ -100,25 +100,32 @@ Medido em 10 seeds a 90% de densidade (uma ignição, sem novas bombas):
 > conclusão qualitativa não muda — **o "quanto assusta" é o raio de ignição, não
 > o R0** — mas a bomba é 6× menos devastadora do que a doc dizia.
 
-### R0 0,85 → 1,105 ("30% mais propagação", pedido do usuário)
+### "O fogo anda mais rápido" — decisão final: `burnTime` 10 → 7 s
 
-A propagação é limitada por **adjacência**: um tile só pega fogo de um vizinho
-que já está queimando. Multiplicar a chance por 1,3 mexe em R0, mas onde há
-poucos vizinhos não há o que multiplicar. Medido em 16 seeds, bomba raio 5:
+O pedido foi +30% de propagação. A primeira tentativa foi a leitura literal:
+multiplicar a chance de propagação por 1,3 (`r0Target` 0,85 → 1,105). Medido em
+16 seeds com bomba raio 5:
 
-| densidade | R0 antes | R0 depois | tiles antes | tiles depois | duração |
+| densidade | R0 antes | R0 com chance ×1,3 | tiles antes | tiles depois | duração |
 | --- | --- | --- | --- | --- | --- |
 | 25% (jogo real) | 0,243 | 0,316 | 18 | 18 | 11 s → 12 s |
 | 90% (floresta cheia) | 0,850 | 1,105 | 84 | 91 | 30 s → 36 s |
 
-Em floresta cheia R0 passa de 1 (supercrítico): o incêndio deixa de ter teto e
-só para na água ou na borda rala. **É uma escolha de design, não um acidente** —
-está travada por teste em `check.mjs` (`R0 configurado…`).
+Quase nada em densidade de jogo, e R0 > 1 em floresta cheia (incêndio sem teto).
+**A propagação é limitada por adjacência, não por probabilidade**: com 25% de
+floresta cada tile tem ~2 vizinhos, então não existe o que multiplicar.
 
-Se o objetivo era "o fogo se espalha mais rápido" e não "queima mais área", o
-botão é `FIRE.burnTime`: medido com R0 de volta em 0,85 e `burnTime` 10 → 7 s, a
-área queimada fica igual (87 vs 84) e a frente avança ~20% mais rápido
-(duração 25 s vs 30 s).
+O botão da **velocidade** é outro. Um tile só passa fogo enquanto está
+queimando, então a frente avança ~1 tile por `burnTime`. Revertido o R0 para
+0,85 e com `burnTime` 7 s:
+
+| densidade | tiles | duração antes | duração agora |
+| --- | --- | --- | --- |
+| 25% | 18 | 11 s | **8 s** |
+| 90% | 87 | 30 s | **25 s** |
+
+Mesma área queimada, frente ~20% mais rápida, R0 de volta abaixo de 1. Travado
+por teste em `check.mjs` (`frente de fogo avança um tile por burnTime`).
 
 ## M5 — Bombardeio ✅
 

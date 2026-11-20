@@ -236,14 +236,29 @@ check('strokePath cobre a linha sem repetir o início', () => {
 
 
 console.log('fogo — balanceamento');
-check('R0 configurado bate com a fórmula (fogo supercrítico em floresta densa)', () => {
+check('R0 configurado bate com a fórmula e fica abaixo de 1', () => {
   const r0 = expectedR0(0.9);
   assert(Math.abs(r0 - FIRE.r0Target) < 1e-6, `R0 ${r0} != alvo ${FIRE.r0Target}`);
-  // Decisão de design: 30% mais propagação levou R0 de 0,85 para 1,105, ou seja
-  // ACIMA de 1. Em floresta densa o incêndio eh supercrítico e só para na água
-  // ou na borda rala. Se alguém mexer nisso, o teste avisa.
-  assert(r0 > 1, `R0 ${r0.toFixed(3)} deveria ser > 1 (supercrítico)`);
-  assert(r0 < 1.2, `R0 ${r0.toFixed(3)} passou de 1,2 — estourou o alvo`);
+  // R0 >= 1 em floresta cheia seria incêndio sem teto. Decisão de design: teto.
+  assert(r0 < 1, `R0 ${r0.toFixed(3)} deveria ser < 1 (fogo com teto)`);
+  assert(r0 > 0.6, `R0 ${r0.toFixed(3)} baixo demais — fogo inofensivo`);
+});
+check('frente de fogo avança um tile por burnTime (velocidade)', () => {
+  // A velocidade da frente é 1 tile / burnTime: por isso burnTime encolheu de
+  // 10s para 7s quando o pedido foi "o fogo anda mais rápido".
+  assert(FIRE.burnTime === 7, `burnTime ${FIRE.burnTime} != 7`);
+  const g = fireGrid(48, 48);
+  for (let y = 2; y < 46; y++) for (let x = 20; x < 28; x++) g.tree[g.idx(x, y)] = 1;
+  g.treeCount = 0;
+  g.recount();
+  ignite(g, 23, 10, 1234);
+  let t = 0;
+  while (g.burningCount > 0 && t < 60) {
+    stepFire(g, 0.1, 1234);
+    t += 0.1;
+  }
+  // Uma faixa de 8 tiles de largura: o fogo precisa de tempo para atravessar.
+  assert(t >= 6 && t <= 26, `leque queimou em ${t.toFixed(1)}s — fora do esperado`);
 });
 check('R0 cresce com a densidade e é subcrítico em floresta rala', () => {
   const rala = expectedR0(0.3);

@@ -188,6 +188,10 @@ incêndio determinístico e testável sem browser. Cada tick, em ordem:
 
 `R0 = vizinhos × FIRE_CHANCE × burnTime`. Com `r0Target = 0,85` e 7 vizinhos a
 90% de densidade, um foco consome `1/(1-R0) ≈ 6,7` tiles: o fogo tem **teto**.
+
+Cuidado: **R0 não é a velocidade**. Ele diz quantos tiles o fogo alcança, não em
+quanto tempo. A frente avança ~1 tile por `burnTime`, então encurtar `burnTime`
+deixa o incêndio mais rápido sem mudar a área queimada (medido: `BACKLOG.md` M4).
 Consequência de design: quem define a ameaça é o **raio de ignição** da bomba,
 não o R0 (tabela medida em `BACKLOG.md` M4).
 
@@ -364,7 +368,7 @@ bombardear no primeiro frame. O botão ↺ liga `saveDescartado`, senão o
 | `WATER.paintDistFactor` | 0.5 | custo = `base * (1 + (dist-1) * fator)` |
 | `WATER.pondVolume` | 1 | volume do tile alagado |
 | `FIRE.r0Target` | 0.85 | R0 alvo a 90% de densidade (não passar de 1) |
-| `FIRE.burnTime` | 10 s | tempo de queima até virar cinza |
+| `FIRE.burnTime` | 7 s | tempo de queima até virar cinza — **é o botão da velocidade da frente** (1 tile por burnTime) |
 | `FIRE.hpMin/hpMax` | 3 / 5 | aplicações de spray para debelar |
 | `FIRE.tickRate` | 10 /s | tick fixo da simulação de fogo |
 | `FIRE.wetSeconds` | 8 s | duração do aceiro molhado |

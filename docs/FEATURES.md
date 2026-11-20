@@ -70,7 +70,7 @@ spray e cinzas, bombardeio com voo visível e explosão, e **áudio procedural**
 | Propagação 8-vizinhos em tick fixo (10/s) | ✅ | determinística: `hash2(tile, tick, seed)` |
 | R0 derivado de configuração, alvo 0,85 a 90% de densidade | ✅ | `FIRE.r0Target`; R0 cai em floresta rala |
 | Fogo não atravessa água | ✅ | testado, inclusive na diagonal |
-| Cada foco queima 10s e vira cinza | ✅ | `FIRE.burnTime` |
+| Cada foco queima 7s e vira cinza | ✅ | `FIRE.burnTime`; a frente avança 1 tile por queima |
 | `fireHp` 3–5: spray reduz, zerar **salva** a árvore | ✅ | árvore não vira cinza se debelada |
 | Spray molha por 8s e serve de aceiro | ✅ | umidade corta a chance para 10% |
 | Cinza por 60s → terra replantável | ✅ | `FIRE.ashSeconds` |
