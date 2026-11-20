@@ -124,14 +124,27 @@ reconstruível) e a ameaça vem do tamanho do que a bomba acende.
 - **A sombra é o único aviso.** O design pede surpresa, mas sem sombra o jogador
   não tem como reagir; ela cresce e escurece enquanto a bomba desce.
 
-## M6 — Áudio procedural
-## M6 — Áudio procedural
+## M6 — Áudio procedural ✅
 
-- [ ] `src/audio.js`: contexto WebAudio criado no primeiro gesto do usuário (política de autoplay)
-- [ ] Fogo: ruído filtrado com amplitude ligada à área queimando
-- [ ] Água: splash curto por aplicação
-- [ ] Explosão: burst de ruído + lowpass sweep
-- [ ] Mudo por padrão? Não — som ligado, com botão de mudo persistido
+- [x] `src/audio.js`: contexto criado no primeiro gesto (política de autoplay)
+- [x] Fogo: cama de ruído filtrado com ganho ligado à área queimando + estalos sorteados
+- [x] Água: splash curto por aplicação, splash maior ao debelar foco
+- [x] Explosão: burst de ruído com lowpass descendo + thump senoidal grave
+- [x] Assovio descendente durante a queda da bomba (único aviso sonoro)
+- [x] Plantar: toque curto de madeira
+- [x] Mudo pela tecla `M` ou botão 🔊, persistido em localStorage
+- [x] Pan estéreo pela posição do tile na tela
+
+### Decisões
+
+- **Fogo é ambiente, não evento.** Um som por foco seriam 100 osciladores.
+  Cama contínua de ruído + estalos com densidade proporcional resolve com 1 nó.
+- **Throttle por tipo de som.** Um spray de raio 4 empurra 49 eventos no mesmo
+  frame; sem throttle seriam 49 splashes empilhados (= ruído branco saturado).
+  Medido: 49 eventos → 1 voz.
+- **Teto global de 14 vozes.** Acima disso descarta, em vez de somar.
+- **Assovio é o único aviso.** O design quer surpresa visual (a bomba só aparece
+  voando), mas som dá tempo de reação sem mostrar onde ela cai.
 
 ## M7 — PWA e persistência
 

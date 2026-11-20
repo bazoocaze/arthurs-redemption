@@ -63,6 +63,7 @@ Regra de ouro: **a simulação não conhece pixels; o render não conhece regras
 | `src/sim/paint.js` | ✅ | plantar, alagar, brush, trilha, drenagem do rio | render |
 | `src/sim/fire.js` | ✅ | ignição, propagação (R0), spray, cinza, umidade | render |
 | `src/render/fire.js` | ✅ | chamas (sprites + halo), fumaça, vapor | simulação |
+| `src/audio.js` | ✅ | síntese WebAudio, throttle, cama de fogo, assovio | sim + render |
 | `src/sim/bombs.js` | ✅ | agendador, escolha de alvo, voo, impacto | render |
 | `src/render/bombs.js` | ✅ | bomba em voo (arco/rastro/sombra), explosão | simulação |
 | `src/ui.js` | ✅ | palheta, HUD, atalhos | simulação |
@@ -243,6 +244,32 @@ são desenhados para **não se confundirem**:
 `dx/dy` acumula `vdx/vdy` em pixels. Antes era `wx += vx`, e em iso mover X no
 mundo é andar na diagonal da tela — a fumaça subia torta. Vento e empuxo agora
 são exatamente o que o jogador vê.
+
+## 5e. Áudio (`src/audio.js`)
+
+Nenhum arquivo de som: osciladores, ruído branco (1 s de buffer compartilhado) e
+filtros.
+
+| som | síntese |
+| --- | --- |
+| explosão | ruído → lowpass 1200→90 Hz, envelope 0,85 s + senoide 110→32 Hz (peso) |
+| spray | ruído → bandpass 2100→900 Hz, 0,14 s |
+| debelar | idem, 0,42 s e mais forte + 2 gotas agudas |
+| plantar | triângulo 300→170 Hz, 0,1 s (toque de madeira, não bipe) |
+| ignição | ruído → bandpass 300→1100 Hz, 0,34 s |
+| cama de fogo | ruído → bandpass 520 Hz (Q 0,6) + highpass 2600 Hz, ganho `min(0,14; focos·0,006)` |
+| estalo | ruído → bandpass 1400–3200 Hz aleatório, 30 ms, até 14/s |
+| assovio | triângulo 980→240 Hz pela duração da queda |
+
+**Orçamento de vozes.** `MAX_VOICES = 14`; acima disso o som é descartado.
+`THROTTLE` por tipo (spray 70 ms, explosão 120 ms) converte rajada em um som —
+um spray de raio 4 gera 49 eventos e uma única voz.
+
+**Silêncio é zero.** A cama só existe depois do `unlock()` e o ganho vai a 0 sem
+fogo; medido no probe: RMS 0 em repouso, 0,015 com 107 focos, pico 0,05 na bomba.
+
+**Pan estéreo:** `panFor(x, y)` em `main.js` converte a posição do tile para
+−1..1 e o módulo usa `StereoPannerNode`.
 
 ## 6. Tunables (`config.js`)
 

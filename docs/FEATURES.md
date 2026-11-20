@@ -7,10 +7,10 @@ Legenda: ✅ funcionando · 🧪 implementado mas sem verificação visual · �
 
 ## Estado atual
 
-**M1 + M2 + M3 + M3b + M4 + M5 concluídos** — mundo isométrico navegável,
+**M1–M6 concluídos** — mundo isométrico navegável,
 floresta de 4 espécies, pintura de água que drena o rio, fogo balanceado com
-spray e cinzas, e **bombardeio** com voo visível e explosão. Ainda não há áudio
-nem save.
+spray e cinzas, bombardeio com voo visível e explosão, e **áudio procedural**
+(sem nenhum arquivo de som). Falta save/PWA.
 
 ## Infra / projeto
 
@@ -94,6 +94,21 @@ nem save.
 | Impacto: clarão, anel, poeira, tremor, ignição raio 5 | ✅ | ~500 tiles queimados por impacto |
 | `B` solta bomba no cursor (debug) | ✅ | só com `?debug=1` |
 
+## Áudio
+
+| Feature | Status | Observações |
+| --- | --- | --- |
+| Tudo sintetizado em WebAudio | ✅ | zero assets, funciona offline |
+| Criado no primeiro gesto (autoplay) | ✅ | `audio.unlock()` em pointerdown/keydown |
+| Cama de fogo com ganho ligado à área queimando | ✅ | 1 nó, não 1 por foco |
+| Estalos com densidade proporcional ao fogo | ✅ | teto de 14/s |
+| Splash curto no spray, splash maior ao debelar | ✅ | throttle de 70/120ms |
+| Explosão: ruído + lowpass sweep + thump grave | ✅ | 0,85s |
+| Assovio descendente na queda da bomba | ✅ | único aviso sonoro |
+| Pan estéreo pela posição na tela | ✅ | `panFor` em main.js |
+| Mudo por `M` ou botão 🔊, persistido | ✅ | localStorage `ar.mudo` |
+| Teto de 14 vozes simultâneas | ✅ | descarta em vez de somar |
+
 ## HUD
 
 | Feature | Status | Observações |
@@ -127,7 +142,6 @@ Otimizações que produziram isso: `Path2D.rect` em espaço de tile com matriz i
 
 | Feature | Status | Milestone |
 | --- | --- | --- |
-| Áudio procedural | ❌ | M6 |
 | Save/retomada (localStorage) | ❌ | M7 |
 | Service worker (offline) | ❌ | M7 |
 | Pontuação, vitória e tela satírica | ❌ | M9/M10 |
