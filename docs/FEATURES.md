@@ -48,8 +48,8 @@ spray e cinzas, bombardeio com voo visível e explosão, e **áudio procedural**
 | Trilha interpolada (Bresenham) no arrasto | ✅ | arrasto rápido não deixa buracos |
 | Plantar floresta em terra vazia | ✅ | ignora água, cinza e fogo |
 | Pintar água drenando o rio | ✅ | custo `2 * (1 + (dist-1) * 0.5)` |
-| Reservatório finito de água | ✅ | soma dos `waterVol`; alagar falha sem volume |
-| Denominador da cobertura congelado | ✅ | pintar lago não facilita a meta |
+| Reservatório finito de água | ✅ | soma dos `waterVol` (10 por tile de rio); spray falha sem volume |
+| Denominador da cobertura congelado | ✅ | nenhum verbo destrói terra: teto é sempre 100% |
 
 ## Floresta
 
@@ -78,7 +78,7 @@ spray e cinzas, bombardeio com voo visível e explosão, e **áudio procedural**
 | Fumaça (fuligem) escura e esfarrapada, vento para cima/direita | ✅ | deslocamento em px de tela |
 | Vapor (branco-azulado) ao apagar, curto e rápido | ✅ | distinto da fumaça em cor, forma, tamanho e vida |
 | Pílula 🔥 no HUD com número de focos | ✅ | pisca enquanto há fogo |
-| 💧 contextual: apaga / molha / cava lago | ✅ | a dica muda com a ferramenta |
+| 💧 contextual: apaga fogo / molha árvore | ✅ | a dica muda com a ferramenta; pintar lago foi removido |
 
 ## Bombardeio
 

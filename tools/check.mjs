@@ -6,7 +6,7 @@ import { tileWorldX, tileWorldY, tileCenterY, worldToTile } from '../src/iso.js'
 import { generateWorld } from '../src/generator.js';
 import { Grid, TERRAIN, STATE } from '../src/grid.js';
 import { mulberry32, hash2 } from '../src/rng.js';
-import { plantTree, paintWaterTile, waterPaintCost, applyBrush, strokePath, canPlant } from '../src/sim/paint.js';
+import { plantTree, applyBrush, strokePath, canPlant, applyWater } from '../src/sim/paint.js';
 import { groveSizeAt, blockMatches } from '../src/grove.js';
 import { WATER, FIRE, FIRE_CHANCE } from '../src/config.js';
 import {
@@ -124,22 +124,24 @@ check('distância 0 na água, 1 na terra encostada', () => {
   assert(adjacent >= 0, 'nenhum tile de terra encostado em rio');
   const src = g.waterSource[adjacent];
   assert(g.terrain[src] === TERRAIN.WATER, 'waterSource deveria apontar para água');
-  assert(waterPaintCost(g, adjacent % g.w, (adjacent / g.w) | 0) === WATER.paintBase, 'custo encostado no rio deveria ser paintBase');
 });
-check('custo cresce com a distância', () => {
-  const g = a.grid;
-  let d1 = -1;
-  let d5 = -1;
-  for (let i = 0; i < g.distToWater.length; i++) {
-    if (g.terrain[i] !== TERRAIN.DIRT) continue;
-    if (g.distToWater[i] === 1 && d1 < 0) d1 = i;
-    if (g.distToWater[i] === 5 && d5 < 0) d5 = i;
+check('ferramenta água não cria mais terreno alagado', () => {
+  // Decisão de design: pintar lago saiu do jogo. A água só molha/apaga.
+  const g2 = generateWorld(999).grid;
+  let i = -1;
+  for (let k = 0; k < g2.terrain.length; k++) {
+    if (g2.terrain[k] === TERRAIN.DIRT && g2.tree[k] === 0 && g2.state[k] === STATE.IDLE) { i = k; break; }
   }
-  assert(d1 >= 0 && d5 >= 0, 'faltou amostra de distância 1 ou 5');
-  const c1 = waterPaintCost(g, d1 % g.w, (d1 / g.w) | 0);
-  const c5 = waterPaintCost(g, d5 % g.w, (d5 / g.w) | 0);
-  assert(c1 === WATER.paintBase, `custo dist 1 = ${c1}`);
-  assert(c5 === WATER.paintBase * (1 + 4 * WATER.paintDistFactor), `custo dist 5 = ${c5}`);
+  assert(i >= 0, 'nenhuma terra vazia para testar');
+  const x = i % g2.w;
+  const y = (i / g2.w) | 0;
+  const waterAntes = g2.waterCount;
+  const terraAntes = g2.landTiles;
+  const volAntes = g2.waterTotal;
+  assert(applyWater(g2, x, y, 2, 1234) === 0, 'água em terra vazia deveria ser no-op');
+  assert(g2.terrain[i] === TERRAIN.DIRT, 'terra virou água');
+  assert(g2.waterCount === waterAntes && g2.landTiles === terraAntes, 'contadores de terreno mudaram');
+  assert(Math.abs(g2.waterTotal - volAntes) < 1e-6, 'volume mudou sem motivo');
 });
 
 console.log('pintura');
@@ -162,30 +164,17 @@ check('planta em terra e recusa água/repetido', () => {
   assert(plantTree(g, waterTile % g.w, (waterTile / g.w) | 0, 1) === false, 'não deveria plantar na água');
   assert(canPlant(g, -1, -1) === false, 'fora do mapa deveria ser inválido');
 });
-check('denominador da cobertura fica congelado ao alagar', () => {
-  const landTotal = g.landTotal;
-  const landTiles = g.landTiles;
-  const vol = g.waterTotal;
-  const i = g.idx(3, 3);
-  g.terrain[i] = TERRAIN.DIRT;
-  g.tree[i] = 0;
-  g.state[i] = STATE.IDLE;
-  const cost = paintWaterTile(g, 3, 3);
-  assert(cost > 0, 'deveria alagar');
-  assert(g.landTotal === landTotal, `landTotal mudou: ${landTotal} -> ${g.landTotal}`);
-  assert(g.landTiles === landTiles - 1, 'landTiles deveria cair 1');
-  assert(Math.abs(g.waterTotal - (vol - cost + WATER.pondVolume)) < 1e-6, 'balanço de volume errado');
-  assert(g.waterVol[i] === WATER.pondVolume, 'volume do lago errado');
+check('cobertura pode chegar a 100%: nenhum verbo destrói terra', () => {
+  // Com o lago fora, landTiles nunca cai — o teto de vitória é sempre 100%.
+  const g4 = generateWorld(2024).grid;
+  assert(g4.landTiles === g4.landTotal, `terra ${g4.landTiles} != denominador ${g4.landTotal}`);
+  const rng = mulberry32(77);
+  for (let n = 0; n < 200; n++) {
+    applyBrush(g4, Math.floor(rng() * g4.w), Math.floor(rng() * g4.h), 3, 'water', 5);
+  }
+  assert(g4.landTiles === g4.landTotal, 'água destruiu terra');
 });
-check('não alaga sem água no reservatório', () => {
-  const g2 = generateWorld(888).grid;
-  for (let i = 0; i < g2.waterVol.length; i++) g2.waterVol[i] = 0;
-  g2.waterTotal = 0;
-  const before = g2.waterCount;
-  const cost = paintWaterTile(g2, 3, 3);
-  assert(cost === 0, 'não deveria conseguir alagar sem água');
-  assert(g2.waterCount === before, 'waterCount não deveria mudar');
-});
+
 check('contadores incrementais batem com recount()', () => {
   const g3 = generateWorld(4242).grid;
   const rng = mulberry32(31);
@@ -629,7 +618,6 @@ function fakeStorage() {
 function mundoSalvo() {
   const { grid } = generateWorld(1234);
   for (let y = 20; y < 50; y += 2) for (let x = 20; x < 50; x += 2) plantTree(grid, x, y, 1234);
-  paintWaterTile(grid, 60, 24);
   igniteRadius(grid, 44, 36, 2, 1234);
   grid.recount();
   return grid;

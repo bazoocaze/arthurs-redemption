@@ -62,12 +62,12 @@ export function createUi(state, hooks) {
     hooks.setBrushRadius(next);
   });
 
-  // A ferramenta água é sensível ao contexto (apaga fogo OU cava lago), então a
-  // dica muda com ela — senão o jogador não descobre que dá para apagar fogo.
+  // A ferramenta água é sensível ao contexto (apaga fogo OU molha árvore), então
+  // a dica muda com ela — senão o jogador não descobre que dá para apagar fogo.
   const HINTS = {
     pan: 'arraste para mover · roda ou pinça para zoom',
     tree: 'arraste para plantar · dois dedos ou botão direito movem',
-    water: '💧 apaga fogo e alaga terra · custa água do rio',
+    water: '💧 apaga fogo e molha árvore · custa água do rio',
   };
 
   function refreshTool() {

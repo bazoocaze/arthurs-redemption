@@ -49,9 +49,6 @@ export const BRUSH = {
 };
 
 export const WATER = {
-  pondVolume: 1, // volume do tile criado ao pintar água
-  paintBase: 2, // 2:1 encostado no rio (dist 1) — número pedido pelo autor
-  paintDistFactor: 0.5, // custo = paintBase * (1 + (dist-1) * fator)
   sprayCost: 1, // volume por aplicação de spray encostado no rio
   sprayDistFactor: 0.3, // spray longe do rio custa mais (transporte)
   sprayMaxCost: 5, // teto do custo de transporte

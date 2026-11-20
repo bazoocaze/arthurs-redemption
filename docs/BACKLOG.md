@@ -68,6 +68,21 @@ Convenções de status:
 - [x] Moita única desenhada no lugar de N árvores dentro do bloco
 - [x] LOD: abaixo de `RENDER.lodZoom` (0.45) árvores viram manchas em 4 paths (1 por espécie)
 
+## M3c — Pintura de lago removida ✅
+
+A ferramenta 💧 fazia duas coisas: apagar fogo e cavar lago. O lago foi
+**removido** a pedido do autor, com esta medição como justificativa:
+
+| por que o lago não pagava | evidência |
+| --- | --- |
+| o fogo não viaja | 2 ignições de raio 2 em floresta 100% densa queimaram 42 tiles; cada foco rende ~0,6 tile extra. Alcance de ~3 tiles |
+| a barreira protege a vítima errada | a ameaça é o impacto instantâneo (71 focos num raio 5), que cai DENTRO do muro |
+| cobra no recurso da vitória | cada tile de água saía do denominador congelado; zerar a reserva em lagos levou a cobertura máxima a 89,4% (meta: 90%) — partida invencível, silenciosamente |
+
+Fica só o **spray** (`sprayTile`), que é throughput de combate. Consequência
+boa: nenhum verbo destrói terra, então `landTiles === landTotal` sempre e o teto
+de cobertura volta a ser 100%. Travado por teste em `check.mjs`.
+
 ## M4 — Fogo, água e cinzas ✅
 
 - [x] `src/sim/fire.js`: ignição, propagação 8-vizinhos por tick fixo, resistência a `wet`

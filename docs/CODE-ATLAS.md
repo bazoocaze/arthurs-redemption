@@ -60,7 +60,7 @@ Regra de ouro: **a simulação não conhece pixels; o render não conhece regras
 | `src/render/sprites.js` | ✅ | sprites de árvore pré-renderizados (base + sombra embutida) | estado |
 | `src/render/overlay.js` | ✅ | highlight e preview do brush | regras |
 | `src/grove.js` | ✅ | detecção de bloco NxN da mesma espécie (puro, testável) | canvas |
-| `src/sim/paint.js` | ✅ | plantar, alagar, brush, trilha, drenagem do rio | render |
+| `src/sim/paint.js` | ✅ | plantar, spray/molha, brush, trilha, drenagem do rio | render |
 | `src/sim/fire.js` | ✅ | ignição, propagação (R0), spray, cinza, umidade | render |
 | `src/render/fire.js` | ✅ | chamas (sprites + halo), fumaça, vapor | simulação |
 | `src/game.js` | ✅ | máquina de estados, pontuação, recordes, mensagens | main |
@@ -196,9 +196,11 @@ Consequência de design: quem define a ameaça é o **raio de ignição** da bom
 não o R0 (tabela medida em `BACKLOG.md` M4).
 
 **Spray** (`sprayTile`) é a ferramenta 💧 aplicada a árvore/foco: custa
-`sprayCost * (1 + (dist-1) * 0,3)` (teto 5), molha o tile por 8s e reduz
-`fireHp`. Zerar o HP **salva a árvore** (não vira cinza). Em terra vazia, a mesma
-ferramenta cava lago — daí a dica do HUD mudar com a ferramenta.
+`sprayCost * (1 + (dist-1) * 0,3)` (teto 5), molha o tile por 8 s e reduz
+`fireHp`. Zerar o HP **salva a árvore** (não vira cinza). Em terra vazia a
+ferramenta não faz nada: **pintar lago foi removido** (motivo medido em
+`src/sim/paint.js` e em `BACKLOG.md`). Como nenhum verbo destrói terra,
+`landTiles === landTotal` sempre — o teto de cobertura é 100%.
 
 ### Render do fogo
 
@@ -364,7 +366,6 @@ bombardear no primeiro frame. O botão ↺ liga `saveDescartado`, senão o
 | `SCORE_PAR_TIME` | 480 s | PAR de tempo da pontuação |
 | `SAVE_EVERY` | ~10 s | autosave |
 | `BRUSH.min/max/defaultRadius` | 1 / 4 / 2 | raio do pincel em tiles |
-| `WATER.paintBase` | 2 | custo de alagar encostado no rio (2:1) |
 | `WATER.paintDistFactor` | 0.5 | custo = `base * (1 + (dist-1) * fator)` |
 | `WATER.pondVolume` | 1 | volume do tile alagado |
 | `FIRE.r0Target` | 0.85 | R0 alvo a 90% de densidade (não passar de 1) |

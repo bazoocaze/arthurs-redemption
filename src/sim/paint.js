@@ -1,4 +1,4 @@
-// Regras de pintura: plantar árvore e alagar terreno.
+// Regras de pintura: plantar árvore e combater fogo com água.
 // Muta o grid e mantém os contadores incrementais em sincronia.
 import { SPECIES, WATER } from '../config.js';
 import { STATE, TERRAIN } from '../grid.js';
@@ -32,71 +32,14 @@ export function plantTree(grid, x, y, seed) {
   return true;
 }
 
-export function canPaintWater(grid, x, y) {
-  if (!grid.inBounds(x, y)) return false;
-  const i = grid.idx(x, y);
-  return grid.terrain[i] === TERRAIN.DIRT && grid.tree[i] === 0 && grid.state[i] === STATE.IDLE;
-}
-
-/**
- * Custo para alagar um tile:
- *   encostado no rio (dist 1) => paintBase (2:1, o número combinado)
- *   longe do rio            => cresce linearmente, o que inviabiliza fossos
- * `distToWater` é congelado na geração, então pintar um lago não barateia o
- * próximo tile — é o que impede cercar a floresta de água.
- */
-export function waterPaintCost(grid, x, y) {
-  if (!grid.inBounds(x, y)) return Infinity;
-  const raw = grid.distToWater[grid.idx(x, y)];
-  const d = raw < 1 ? 1 : raw;
-  return WATER.paintBase * (1 + (d - 1) * WATER.paintDistFactor);
-}
-
-/**
- * Debita `amount` do reservatório: primeiro do rio mais próximo do tile,
- * depois varrendo os tiles de água que ainda têm volume.
- * Atômico: verifica o total antes de debitar.
- */
-function consumeWater(grid, tileIndex, amount) {
-  if (amount <= 0) return true;
-  if (grid.waterTotal < amount) return false;
-
-  let need = amount;
-  const src = grid.waterSource[tileIndex];
-  if (src >= 0 && grid.waterVol[src] > 0) {
-    const take = Math.min(need, grid.waterVol[src]);
-    grid.waterVol[src] -= take;
-    grid.waterTotal -= take;
-    need -= take;
-  }
-  for (let k = 0; k < grid.waterTiles.length && need > 0; k++) {
-    const j = grid.waterTiles[k];
-    const v = grid.waterVol[j];
-    if (v <= 0.0001) continue;
-    const take = Math.min(need, v);
-    grid.waterVol[j] -= take;
-    grid.waterTotal -= take;
-    need -= take;
-  }
-  return need <= 0.0001;
-}
-
-/** Alaga um tile. Retorna o custo pago (0 = não deu). */
-export function paintWaterTile(grid, x, y) {
-  if (!canPaintWater(grid, x, y)) return 0;
-  const i = grid.idx(x, y);
-  const cost = waterPaintCost(grid, x, y);
-  if (!consumeWater(grid, i, cost)) return 0;
-
-  grid.terrain[i] = TERRAIN.WATER;
-  grid.waterVol[i] = WATER.pondVolume;
-  grid.waterTotal += WATER.pondVolume;
-  grid.waterCount++;
-  grid.landTiles--;
-  grid.waterTiles.push(i);
-  // distToWater/waterSource ficam congelados de propósito (anti-fosso).
-  return cost;
-}
+// Pintar lago foi REMOVIDO (decisão do autor): a ferramenta água faz spray e só.
+//
+// Por que saiu: o lago nasceu como aceiro, mas o fogo não viaja (R0 < 1, alcance
+// de ~3 tiles a partir de um foco), então o muro continha um incêndio que não ia
+// chegar nele — e a bomba, que é a ameaça real, cai DENTRO do muro. Pior: cada
+// tile de água saía do denominador congelado da cobertura, e com 10% de folga
+// até os 90% um arrasto grande deixava a partida invencível sem avisar.
+// Água agora é só throughput de combate (spray), que é o que o jogo cobra.
 
 /** Executa `fn` em todos os tiles do disco do brush (inclui o centro). */
 export function brushTiles(grid, cx, cy, radius, fn) {
@@ -118,9 +61,9 @@ export function brushTiles(grid, cx, cy, radius, fn) {
  * Ferramenta água, sensível ao contexto:
  *   - tile em chamas  -> spray (reduz fireHp; apaga de vez quando zera)
  *   - árvore sã       -> molha (aceiro)
- *   - terra vazia     -> cava lago (custo por distância do rio)
+ *   - terra vazia     -> nada (pintar lago saiu do jogo, ver nota acima)
  *   - cinza/água      -> nada
- * O custo de transporte é o mesmo da pintura: longe do rio, apagar é caro.
+ * O custo de transporte cresce com a distância do rio: longe, apagar é caro.
  */
 export function applyWater(grid, cx, cy, radius, seed) {
   let changed = 0;
@@ -134,8 +77,7 @@ export function applyWater(grid, cx, cy, radius, seed) {
       if (sprayTile(grid, x, y, seed) > 0) changed++;
       return;
     }
-    if (st === STATE.ASH) return;
-    if (paintWaterTile(grid, x, y) > 0) changed++;
+    // Terra vazia ou cinza: nada a fazer com água. Sem lago.
   });
   return changed;
 }
