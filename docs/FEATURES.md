@@ -75,6 +75,8 @@ nem save.
 | Spray molha por 8s e serve de aceiro | ✅ | umidade corta a chance para 10% |
 | Cinza por 60s → terra replantável | ✅ | `FIRE.ashSeconds` |
 | Chamas com sprite + halo, fumaça com teto de 120 partículas | ✅ | `render/fire.js` |
+| Fumaça (fuligem) escura e esfarrapada, vento para cima/direita | ✅ | deslocamento em px de tela |
+| Vapor (branco-azulado) ao apagar, curto e rápido | ✅ | distinto da fumaça em cor, forma, tamanho e vida |
 | Pílula 🔥 no HUD com número de focos | ✅ | pisca enquanto há fogo |
 | 💧 contextual: apaga / molha / cava lago | ✅ | a dica muda com a ferramenta |
 
