@@ -1,6 +1,6 @@
 // Bootstrap e loop principal. Aqui vive a ordem de update/render: simulação não
 // conhece pixels, render não conhece regras.
-import { COLORS, TIME, BRUSH, FIRE, BOMB } from './config.js';
+import { COLORS, TIME, BRUSH, FIRE, BOMB, TILE_W, ORIGIN_X } from './config.js';
 import { generateWorld } from './generator.js';
 import { Camera } from './camera.js';
 import { createInput } from './input.js';
@@ -16,6 +16,7 @@ import {
   createBombFx, spawnBlast, updateBombFx, drawBombs, drawBombFx, bombFxActive,
 } from './render/bombs.js';
 import { createUi } from './ui.js';
+import { createAudio } from './audio.js';
 import { hash2 } from './rng.js';
 
 const params = new URLSearchParams(location.search);
@@ -29,6 +30,7 @@ const ctx = canvas.getContext('2d', { alpha: false });
 
 const { grid } = generateWorld(SEED);
 const fx = createFx();
+const audio = createAudio();
 const bombs = createBombs(SEED);
 const bombFx = createBombFx();
 const camera = new Camera();
@@ -61,10 +63,17 @@ let fitted = false;
 
 // A sim empurra eventos (spray, ignição, extinção) e o render os traduz em
 // partículas. Mantém sim/paint e sim/fire sem nenhuma dependência de canvas.
+/** Posição do tile no eixo horizontal da tela, normalizada em -1..1 (pan do som). */
+function panFor(x, y) {
+  const sx = ((x - y) * (TILE_W / 2) + ORIGIN_X - camera.x) * camera.zoom;
+  return Math.max(-1, Math.min(1, ((sx / camera.viewW) * 2 - 1) * 0.8));
+}
+
 function drainEvents() {
   const ev = grid.events;
   for (let k = 0; k < ev.length; k++) {
     const e = ev[k];
+    audio.play(e.type, panFor(e.x, e.y));
     if (e.type === 'spray') spawnSteam(fx, e.x, e.y, 1);
     else if (e.type === 'extinguish') spawnSteam(fx, e.x, e.y, 5);
     else if (e.type === 'explosion') {
@@ -126,6 +135,12 @@ const hooks = {
     }
     return lit;
   },
+  toggleMute() {
+    audio.unlock();
+    const mudo = audio.toggleMute();
+    ui.setMuted(mudo);
+    return mudo;
+  },
   setBrushRadius(r) {
     state.brushRadius = r;
     ui.updateHud();
@@ -137,6 +152,7 @@ prebuildSprites();
 
 const ui = createUi(state, hooks);
 ui.setWaterInitial(grid.waterTotal);
+ui.setMuted(audio.muted); // estado do mudo é persistido em localStorage
 
 // --- viewport -------------------------------------------------------------
 
@@ -206,6 +222,7 @@ function updateDebug(dt) {
     `fogo ${grid.burningCount} focos · cinza ${grid.ashCount} · fumaça ${fx.smoke.length} · vapor ${fx.steam.length}`,
     `bombas ${bombs.inFlight.length} em voo · eventos ${bombs.events} · próximo em ${Math.max(0, bombs.nextEventAt - bombs.elapsed).toFixed(0)}s`,
     `no próximo evento: ${bombsForEvent(bombs.elapsed)} bomba(s)`,
+    `som ${audio.muted ? '🔇' : '🔊'} · vozes ${audio.vozes}`,
     `seed ${SEED}`,
     `frames ${stats.frames} · pulados ${stats.framesSkipped} (redraw ${allPct}% no total)`,
   ].join('\n');
@@ -258,6 +275,7 @@ function updateFire(dt) {
   updateFx(fx, grid, dt);
   updateBombs(bombs, grid, dt, SEED);
   updateBombFx(bombFx, dt);
+  audio.update(dt, grid.burningCount, bombs);
   // NÃO marcar `dirty` aqui: o fogo é animação, não entrada. Quem pede o frame é
   // `animFrame()`, que obedece ao teto de `TIME.animHz`.
 }
@@ -305,6 +323,11 @@ function render() {
 let lastTs = 0;
 let lastDt = 0.016;
 let lastRenderTs = -1e9;
+// Autoplay policy: o contexto de áudio só nasce de um gesto do usuário.
+for (const evName of ['pointerdown', 'keydown']) {
+  window.addEventListener(evName, () => audio.unlock(), { once: false, passive: true });
+}
+
 function frame(ts) {
   const dt = lastTs ? Math.min((ts - lastTs) / 1000, TIME.maxDt) : 0;
   lastTs = ts;
@@ -352,6 +375,12 @@ window.addEventListener('keydown', (e) => {
     hooks.ignite(state.hover.x, state.hover.y, 4);
     return;
   }
+  if (e.key === 'm' || e.key === 'M') {
+    audio.unlock();
+    const mudo = audio.toggleMute();
+    ui.setMuted(mudo);
+    return;
+  }
   if ((e.key === 'b' || e.key === 'B') && dbgMode === 2 && state.hover) {
     hooks.bomb(state.hover.x, state.hover.y);
     return;
@@ -367,4 +396,4 @@ applyDbgMode();
 requestAnimationFrame(frame);
 
 // Hook de inspeção manual no console (usado pelos probes headless).
-window.__game = { grid, camera, state, stats, hooks, fx, bombs, bombFx, seed: SEED };
+window.__game = { grid, camera, state, stats, hooks, fx, bombs, bombFx, audio, seed: SEED };

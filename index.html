@@ -146,6 +146,15 @@
       #palette button:active {
         transform: scale(0.95);
       }
+      #mute-btn {
+        width: 44px !important;
+        font-size: 17px !important;
+        border-left: 1px solid rgba(255, 255, 255, 0.1) !important;
+        border-radius: 0 12px 12px 0 !important;
+      }
+      #mute-btn.off {
+        opacity: 0.45;
+      }
       #brush-btn {
         font-size: 13px !important;
         font-variant-numeric: tabular-nums;
@@ -267,6 +276,7 @@
       <button id="brush-btn" title="Tamanho do pincel ( [ e ] )" aria-label="Tamanho do pincel">
         <span id="brush-val">2</span>
       </button>
+      <button id="mute-btn" title="Som (M)" aria-label="Ligar ou desligar o som">🔊</button>
     </div>
 
     <div id="hint">arraste para plantar · dois dedos ou botão direito movem</div>

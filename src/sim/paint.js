@@ -26,6 +26,9 @@ export function plantTree(grid, x, y, seed) {
   grid.tree[i] = 1;
   grid.species[i] = speciesAt(x, y, seed);
   grid.treeCount++;
+  // evento para o áudio (o render ignora, o som usa). Custa 1 objeto por tile
+  // plantado e é drenado no mesmo frame.
+  if (grid.events.length < 256) grid.events.push({ type: 'plant', x, y });
   return true;
 }
 

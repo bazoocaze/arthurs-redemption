@@ -9,6 +9,7 @@ export function createUi(state, hooks) {
   const valWater = document.getElementById('val-water');
   const brushVal = document.getElementById('brush-val');
   const brushBtn = document.getElementById('brush-btn');
+  const muteBtn = document.getElementById('mute-btn');
   const hud = document.getElementById('hud');
   const firePill = document.getElementById('fire-pill');
   const fireCount = document.getElementById('fire-count');
@@ -19,6 +20,10 @@ export function createUi(state, hooks) {
   for (const b of buttons) {
     b.addEventListener('click', () => hooks.setTool(b.dataset.tool));
   }
+  muteBtn.addEventListener('click', () => {
+    hooks.toggleMute();
+  });
+
   brushBtn.addEventListener('click', () => {
     const next = state.brushRadius >= BRUSH.maxRadius ? BRUSH.minRadius : state.brushRadius + 1;
     hooks.setBrushRadius(next);
@@ -63,6 +68,11 @@ export function createUi(state, hooks) {
   return {
     refreshTool,
     updateHud,
+    /** Reflete o estado do som no botão (🔊 / 🔇). */
+    setMuted(mudo) {
+      muteBtn.textContent = mudo ? '🔇' : '🔊';
+      muteBtn.classList.toggle('off', !!mudo);
+    },
     setWaterInitial(v) {
       waterInitial = Math.max(1, v);
       updateHud();

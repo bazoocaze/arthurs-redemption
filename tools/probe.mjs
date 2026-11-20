@@ -64,6 +64,9 @@ const chrome = spawn(
     '--disable-gpu',
     '--hide-scrollbars',
     '--mute-audio',
+    // headless não tem gesto real do usuário; sem isso o AudioContext fica
+    // suspenso e é impossível verificar o M6.
+    '--autoplay-policy=no-user-gesture-required',
     '--disable-lcd-text',
     '--force-device-scale-factor=1',
     `--window-size=${width},${height}`,
