@@ -7,7 +7,7 @@
 //     --wait=1200 --eval="window.__game.camera.zoom" --shot=/tmp/x.png
 
 import { spawn } from 'node:child_process';
-import { readdirSync, existsSync, writeFileSync, rmSync } from 'node:fs';
+import { readdirSync, existsSync, readFileSync, writeFileSync, rmSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -17,6 +17,9 @@ for (const a of process.argv.slice(2)) {
   if (m) opts[m[1]] = m[2];
 }
 const url = opts.url ?? 'http://localhost:8777/';
+// Expressão longa via shell perde caracteres; `--evalFile=arquivo.js` é o
+// caminho seguro para probes grandes (medições, cenários com await).
+const evalExpr = opts.evalFile ? readFileSync(opts.evalFile, 'utf8') : opts.eval;
 const waitMs = Number(opts.wait ?? 1200);
 const width = Number(opts.width ?? 1280);
 const height = Number(opts.height ?? 800);
@@ -142,9 +145,9 @@ try {
   await sleep(waitMs);
 
   let result;
-  if (opts.eval) {
+  if (evalExpr) {
     const r = await send('Runtime.evaluate', {
-      expression: opts.eval,
+      expression: evalExpr,
       returnByValue: true,
       awaitPromise: true,
     });

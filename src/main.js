@@ -13,6 +13,8 @@ import { createUi } from './ui.js';
 
 const params = new URLSearchParams(location.search);
 const DEBUG = params.get('debug') === '1';
+// 0 = escondido, 1 = chip de fps/redraw, 2 = painel completo (?debug=1)
+let dbgMode = DEBUG ? 2 : 1;
 const SEED = params.get('seed') ? Number(params.get('seed')) | 0 : (Math.random() * 0xffffffff) | 0;
 
 const canvas = document.getElementById('game');
@@ -28,8 +30,12 @@ const state = {
   seed: SEED,
 };
 
+// `frames` conta frames desenhados e `framesSkipped` os pulados pelo dirty flag.
+// O par (fps, redrawPct) é o que mostra se o jogo está sendo redesenhado demais
+// (câmera/pintura ativas) ou de menos (parado, gastando 0 ms).
 const stats = {
-  fps: 0, renderMs: 0, terrainMs: 0, treesMs: 0, overlayMs: 0,
+  fps: 0, redrawPct: 0, redrawHz: 0,
+  renderMs: 0, terrainMs: 0, treesMs: 0, overlayMs: 0,
   drawnTiles: 0, drawnTrees: 0, frames: 0, framesSkipped: 0,
 };
 
@@ -110,24 +116,41 @@ const input = createInput(canvas, camera, state, hooks);
 // --- overlay de debug -----------------------------------------------------
 
 const dbgEl = document.getElementById('debug');
-let fpsAccum = 0;
-let fpsFrames = 0;
+const perfEl = document.getElementById('perf');
+// Janela deslizante de 0,5 s: fps, frames redesenhados/s e o percentual deles.
+const win = { t: 0, total: 0, redrawn: 0 };
 let dbgTimer = 0;
 
-function updateDebug(dt) {
-  fpsFrames++;
-  fpsAccum += dt;
-  dbgTimer += dt;
-  if (fpsAccum >= 0.5) {
-    stats.fps = Math.round(fpsFrames / fpsAccum);
-    fpsAccum = 0;
-    fpsFrames = 0;
+function sampleFrame(dt, redrawn) {
+  win.t += dt;
+  win.total++;
+  if (redrawn) win.redrawn++;
+  if (win.t >= 0.5) {
+    stats.fps = Math.round(win.total / win.t);
+    stats.redrawHz = +(win.redrawn / win.t).toFixed(1);
+    stats.redrawPct = Math.round((win.redrawn / win.total) * 100);
+    win.t = 0;
+    win.total = 0;
+    win.redrawn = 0;
   }
-  if (!DEBUG || dbgTimer < 0.25) return;
+}
+
+function updateDebug(dt) {
+  dbgTimer += dt;
+  if (dbgMode === 0 || dbgTimer < 0.25) return;
   dbgTimer = 0;
+
+  const totalFrames = stats.frames + stats.framesSkipped;
+  const allPct = totalFrames ? Math.round((stats.frames / totalFrames) * 100) : 0;
+
+  if (dbgMode === 1) {
+    perfEl.innerHTML = `<b>${stats.fps}</b> fps · <b>${stats.redrawPct}%</b> redraw`;
+    return;
+  }
+
   const h = state.hover;
   dbgEl.textContent = [
-    `fps ${stats.fps}`,
+    `fps ${stats.fps} · redraw ${stats.redrawPct}% (${stats.redrawHz}/s)`,
     `tiles ${stats.drawnTiles} · árvores ${stats.drawnTrees} · ${stats.renderMs.toFixed(1)}ms`,
     `  terreno ${stats.terrainMs.toFixed(1)} · árvores ${stats.treesMs.toFixed(1)} · overlay ${stats.overlayMs.toFixed(1)}`,
     `zoom ${camera.zoom.toFixed(3)}`,
@@ -136,6 +159,7 @@ function updateDebug(dt) {
     `árvores ${grid.treeCount}/${grid.landTotal} (${(grid.coverage() * 100).toFixed(1)}%)`,
     `água ${grid.waterCount} tiles · vol ${grid.waterTotal.toFixed(0)}`,
     `seed ${SEED}`,
+    `frames ${stats.frames} · pulados ${stats.framesSkipped} (redraw ${allPct}% no total)`,
   ].join('\n');
 }
 
@@ -186,9 +210,9 @@ function frame(ts) {
   time += dt;
 
   input.update(dt);
-  updateDebug(dt);
 
-  if (dirty || needsFrame()) {
+  const redrawn = dirty || needsFrame();
+  if (redrawn) {
     render();
     dirty = false;
     stats.frames++;
@@ -196,11 +220,30 @@ function frame(ts) {
     stats.framesSkipped++;
   }
 
+  sampleFrame(dt, redrawn);
+  updateDebug(dt);
+
   requestAnimationFrame(frame);
 }
 
 resize();
-if (DEBUG) dbgEl.style.display = 'block';
+
+function applyDbgMode() {
+  perfEl.style.display = dbgMode === 1 ? 'block' : 'none';
+  dbgEl.style.display = dbgMode === 2 ? 'block' : 'none';
+}
+
+// ` cicla escondido -> chip de fps -> painel completo. Não usamos F3: no
+// Chrome/Firefox F3 é "localizar próxima".
+window.addEventListener('keydown', (e) => {
+  if (e.key !== '`' || e.ctrlKey || e.metaKey) return;
+  e.preventDefault();
+  dbgMode = (dbgMode + 1) % 3;
+  if (dbgMode !== 2) dbgEl.textContent = '';
+  applyDbgMode();
+});
+
+applyDbgMode();
 requestAnimationFrame(frame);
 
 // Hook de inspeção manual no console (usado pelos probes headless).

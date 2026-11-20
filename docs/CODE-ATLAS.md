@@ -232,10 +232,36 @@ Recordes em `localStorage` via `save.js`.
 - **Novo evento (chuva, vento)**: criar `src/sim/<evento>.js` com
   `update(grid, dt, ctx)` e registrar em `main.js`; não tocar em `bombs.js`.
 
-## 9. Debug
+## 9. Debug e perf
 
-`?debug=1` liga overlay com FPS, chunks reassados/frame, contagem de tiles por
-estado, bombas ativas e botão de "ignir 1 tile no centro". `?seed=N` fixa o PRNG.
+Três modos, ciclados pela tecla **`` ` ``** (backtick):
+
+| Modo | O que mostra |
+| --- | --- |
+| 0 | nada |
+| 1 (padrão) | chip `60 fps · 8% redraw` no canto |
+| 2 (`?debug=1` começa aqui) | painel completo |
+
+O painel (`#debug`) mostra, por linha: fps e `redraw %`, ms por camada
+(`terreno / árvores / overlay`), tiles e árvores desenhados, zoom, ferramenta,
+tile sob o cursor, cobertura, água, seed e o acumulado de frames
+(`frames / pulados`).
+
+**`redraw %`** = fração dos frames da última janela de 0,5 s em que o dirty flag
+disparou, ou seja, quantos frames custaram rasterização de verdade. Leitura:
+
+| Situação | redraw esperado |
+| --- | --- |
+| parado (sem vento/shimmer) | ~0–5% (a água "respira" a 2,5 Hz) |
+| arrastando a câmera | 100% |
+| pintando tile novo | 100% |
+| repintando floresta já plantada | 0% — nada mudou, `paintPath` não marca dirty |
+
+A métrica é a que responde "o jogo está gastando CPU?" sem olhar o fps: fps alto
+com `redraw 3%` significa que o loop está ocioso, não que o render é rápido.
+
+`?seed=N` fixa o PRNG. `window.__game` expõe `grid`, `camera`, `state`, `stats`,
+`hooks` e `seed` para inspeção no console e para os probes.
 
 ## 10. Comandos e verificação
 

@@ -155,7 +155,24 @@
         width: 44px !important;
       }
 
-      /* ---- debug / hint ---- */
+      /* ---- perf / debug / hint ---- */
+      #perf {
+        position: fixed;
+        top: 8px;
+        left: 8px;
+        padding: 5px 8px;
+        border-radius: 7px;
+        background: rgba(0, 0, 0, 0.5);
+        color: #bfe9a8;
+        font: 600 11px/1.2 ui-monospace, monospace;
+        letter-spacing: 0.02em;
+        pointer-events: none;
+        opacity: 0.85;
+      }
+      #perf b {
+        color: #f0f6e8;
+        font-weight: 700;
+      }
       #debug {
         display: none;
         position: fixed;
@@ -203,6 +220,7 @@
   </head>
   <body data-tool="tree">
     <canvas id="game"></canvas>
+    <div id="perf" title="fps · % de frames redesenhados · tecla ` alterna"></div>
     <div id="debug"></div>
 
     <div id="hud" aria-hidden="true">

@@ -34,7 +34,8 @@ drena o rio. Ainda não há fogo, bombas, áudio nem save.
 | `F` enquadra o mundo inteiro | ✅ | |
 | Culling de tiles/árvores no viewport | ✅ | |
 | Dirty flag de frame (não redesenha parado) | ✅ | câmera/hover/shimmer |
-| Overlay de debug (`?debug=1`) | ✅ | fps, ms do render, tiles, árvores, cobertura, água, seed |
+| Chip de perf sempre visível | ✅ | `fps · % redraw`, alternado com a tecla `` ` `` |
+| Painel de debug (`?debug=1` ou `` ` ``) | ✅ | fps, redraw %, ms por camada (terreno/árvores/overlay), tiles, árvores, cobertura, água, seed, frames pulados |
 
 ## Pintura
 
@@ -66,6 +67,13 @@ drena o rio. Ainda não há fogo, bombas, áudio nem save.
 | Barra de cobertura de floresta com marcador em 90% | ✅ | meta de vitória |
 | Barra de água restante (vermelha quando seca) | ✅ | proporção do reservatório inicial |
 | Tamanho do brush | ✅ | número no botão da palheta |
+
+## Métrica de redraw
+
+`redraw %` = frames em que o dirty flag disparou na última janela de 0,5 s.
+Medido no headless: câmera parada **3%** (2/s, só o shimmer da água), arrastando
+a câmera **100%**, zoom contínuo **100%**, pintando terra virgem **100%**,
+repintando floresta existente **0%**.
 
 ## Performance medida
 
