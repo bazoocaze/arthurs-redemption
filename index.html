@@ -155,6 +155,21 @@
       #mute-btn.off {
         opacity: 0.45;
       }
+      #reset-btn {
+        width: 44px !important;
+        font-size: 17px !important;
+        border-left: 1px solid rgba(255, 255, 255, 0.1) !important;
+        border-radius: 0 12px 12px 0 !important;
+      }
+      /* Primeiro toque arma; o segundo apaga. Sem modal de texto. */
+      #reset-btn.armed {
+        background: rgba(200, 70, 50, 0.55) !important;
+        animation: pulse 0.7s ease-in-out infinite alternate;
+      }
+      @keyframes pulse {
+        from { opacity: 1; }
+        to { opacity: 0.55; }
+      }
       #brush-btn {
         font-size: 13px !important;
         font-variant-numeric: tabular-nums;
@@ -277,6 +292,7 @@
         <span id="brush-val">2</span>
       </button>
       <button id="mute-btn" title="Som (M)" aria-label="Ligar ou desligar o som">🔊</button>
+      <button id="reset-btn" title="Recomeçar (toque 2×)" aria-label="Recomeçar o jogo">↺</button>
     </div>
 
     <div id="hint">arraste para plantar · dois dedos ou botão direito movem</div>

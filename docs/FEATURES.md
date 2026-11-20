@@ -7,10 +7,10 @@ Legenda: ✅ funcionando · 🧪 implementado mas sem verificação visual · �
 
 ## Estado atual
 
-**M1–M6 concluídos** — mundo isométrico navegável,
+**M1–M7 concluídos** — mundo isométrico navegável,
 floresta de 4 espécies, pintura de água que drena o rio, fogo balanceado com
 spray e cinzas, bombardeio com voo visível e explosão, e **áudio procedural**
-(sem nenhum arquivo de som). Falta save/PWA.
+(sem nenhum arquivo de som) e **save + PWA** (instalável e jogável offline).
 
 ## Infra / projeto
 
@@ -93,6 +93,22 @@ spray e cinzas, bombardeio com voo visível e explosão, e **áudio procedural**
 | Sombra no alvo que cresce | ✅ | única dica de onde cai |
 | Impacto: clarão, anel, poeira, tremor, ignição raio 5 | ✅ | ~500 tiles queimados por impacto |
 | `B` solta bomba no cursor (debug) | ✅ | só com `?debug=1` |
+
+## Save e PWA
+
+| Feature | Status | Observações |
+| --- | --- | --- |
+| Save automático a cada 10 s | ✅ | ~5 ms por save, invisível |
+| Save ao trocar de aba / fechar | ✅ | `visibilitychange` + `pagehide` |
+| Retomada completa (árvores, fogo, água, cinzas) | ✅ | 123 KB de base64 |
+| Retomada de câmera, ferramenta e pincel | ✅ | |
+| Terreno não é salvo (regenerado pela seed) | ✅ | determinismo do gerador |
+| Save versionado; lixo é descartado | ✅ | `SAVE_VERSION` + tamanho exato |
+| `?fresh=1` começa do zero | ✅ | |
+| Recomeçar com 2 toques (↺) | ✅ | sem modal |
+| Manifest instalável com ícones 192/512/maskable | ✅ | `tools/icons.mjs` gera os PNG |
+| Service worker com app shell | ✅ | 27 arquivos em cache |
+| Offline | ✅ | stale-while-revalidate (network-first em localhost) |
 
 ## Áudio
 

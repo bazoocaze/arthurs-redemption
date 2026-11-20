@@ -63,6 +63,8 @@ Regra de ouro: **a simulação não conhece pixels; o render não conhece regras
 | `src/sim/paint.js` | ✅ | plantar, alagar, brush, trilha, drenagem do rio | render |
 | `src/sim/fire.js` | ✅ | ignição, propagação (R0), spray, cinza, umidade | render |
 | `src/render/fire.js` | ✅ | chamas (sprites + halo), fumaça, vapor | simulação |
+| `src/save.js` | ✅ | serialização binária do mundo em localStorage | main |
+| `sw.js` | ✅ | app shell offline (cache versionado) | — |
 | `src/audio.js` | ✅ | síntese WebAudio, throttle, cama de fogo, assovio | sim + render |
 | `src/sim/bombs.js` | ✅ | agendador, escolha de alvo, voo, impacto | render |
 | `src/render/bombs.js` | ✅ | bomba em voo (arco/rastro/sombra), explosão | simulação |
@@ -270,6 +272,32 @@ fogo; medido no probe: RMS 0 em repouso, 0,015 com 107 focos, pico 0,05 na bomba
 
 **Pan estéreo:** `panFor(x, y)` em `main.js` converte a posição do tile para
 −1..1 e o módulo usa `StereoPannerNode`.
+
+## 5f. Save (`src/save.js`)
+
+```
+magic "AR" | version u8 | w u16 | h u16 | seed u32 | elapsed f32   (=15 bytes)
+terrain, tree, species, state, fireHp, ashT, burnT, wet   (u8[n] cada)
+waterVol                                                  (u16[n], ×10)
+bombs: elapsed f32, events u16, nextEventAt f32, lastX/lastY i16, launched, impacts
+camera: x f32, y f32, zoom f32
+ui: brushRadius u8, tool u8
+```
+
+- `encodeState` → ArrayBuffer; `saveGame` → base64 no localStorage (~123 KB).
+- `readSave` valida magic, versão e **tamanho exato**; `apply(grid)` só roda num
+  grid gerado com a mesma seed e dimensões (senão devolve `null`).
+- `apply` termina com `recount()`, que reconstrói contadores, `waterTiles` e as
+  três listas de trabalho do fogo. `landTotal` não é tocado (vem congelado da
+  geração).
+- Escalas: `burnT`/`ashT` em segundos inteiros, `wet` em décimos, `waterVol`
+  em décimos. Precisão suficiente e 4× menor que Float32.
+
+`main.js` restaura na ordem: gerar mundo → `ui.setWaterInitial` (reservatório
+inicial) → `SAVED.apply(grid)` → relógio/bombas/câmera/ui. `bombs.nextEventAt`
+recebe `max(salvo, agora + 8 s)` para um save feito no instante do evento não
+bombardear no primeiro frame. O botão ↺ liga `saveDescartado`, senão o
+`pagehide` regravaria o estado recém-descartado.
 
 ## 6. Tunables (`config.js`)
 

@@ -146,14 +146,33 @@ reconstruível) e a ameaça vem do tamanho do que a bomba acende.
 - **Assovio é o único aviso.** O design quer surpresa visual (a bomba só aparece
   voando), mas som dá tempo de reação sem mostrar onde ela cai.
 
-## M7 — PWA e persistência
+## M7 — PWA e persistência ✅
 
-- [ ] `manifest.webmanifest` (name, short_name, display standalone, theme_color, ícones)
-- [ ] `sw.js`: cache-first do app shell, atualização versionada
-- [ ] `src/save.js`: serializar/restaurar grid + timers + score + RNG seed (localStorage, com `version`)
-- [ ] Autosave a cada ~10s e no `visibilitychange`/`pagehide`
-- [ ] Botão "recomeçar" com confirmação (2 toques, sem modal de texto longo)
-- [ ] Testar instalação no Chrome e retomada offline
+- [x] `manifest.webmanifest` com ícones PNG 192/512 + maskable (gerados por `tools/icons.mjs`)
+- [x] `sw.js`: app shell em cache, atualização versionada, network-first em dev
+- [x] `src/save.js`: grid + relógio + bombas + câmera + ferramenta em localStorage, versionado
+- [x] Autosave a cada 10 s e no `visibilitychange`/`pagehide`
+- [x] Botão ↺ com confirmação em 2 toques (sem modal)
+- [x] `?fresh=1` ignora o save; `?nosw=1` não registra o service worker
+- [x] 5 testes de roundtrip (45 no total)
+
+### Decisões
+
+- **O terreno não é salvo.** Ele é determinístico a partir da seed, então
+  `generateWorld(seed)` reconstrói terreno, tons, rios, `distToWater` e
+  `landTotal` idênticos. Salva só o que muda: 123 KB de base64 em vez de ~2 MB
+  de JSON.
+- **Arrays tipados, não JSON.** Float32 vira Uint8/Uint16 com escala (`burnT`
+  em segundos, `wet` em décimos, `waterVol` em décimos). Encode custa ~5 ms.
+- **Ordem de boot importa.** `waterInitial` (denominador da barra de água) é
+  lido do mundo recém-gerado, antes de aplicar o save; e a câmera é restaurada
+  antes de `resize()` para o `fitWorld` não sobrescrever a posição salva.
+- **`pagehide` + recomeçar = bug.** O botão apagava o save e recarregava, mas o
+  `pagehide` salvava de novo o estado descartado (o jogo "voltava" depois de
+  recomeçar). Corrigido com a flag `saveDescartado`.
+- **Dev é network-first.** Stale-while-revalidate em localhost serviria o código
+  do carregamento anterior após cada edição. Em produção é stale-while-revalidate
+  (abre na hora e atualiza por trás).
 
 ## M9 — Recursos e objetivo (decidido)
 

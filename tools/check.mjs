@@ -15,6 +15,7 @@ import {
 import {
   createBombs, updateBombs, launchEvent, pickTarget, pickRandom, pickForest, bombsForEvent, dropBomb,
 } from '../src/sim/bombs.js';
+import { encodeState, saveGame, readSave, clearSave, SAVE_KEY } from '../src/save.js';
 import { BOMB } from '../src/config.js';
 
 let failures = 0;
@@ -568,6 +569,93 @@ check('dropBomb cai no tile pedido e ignita em raio', () => {
     if (g.state[g.idx(x, y)] !== STATE.IDLE) focos++;
   }
   assert(focos >= 20, `raio de ignição pequeno demais: ${focos} focos`);
+});
+
+
+console.log('save e retomada');
+function fakeStorage() {
+  const m = new Map();
+  return {
+    getItem: (k) => (m.has(k) ? m.get(k) : null),
+    setItem: (k, v) => m.set(k, String(v)),
+    removeItem: (k) => m.delete(k),
+    _map: m,
+  };
+}
+function mundoSalvo() {
+  const { grid } = generateWorld(1234);
+  for (let y = 20; y < 50; y += 2) for (let x = 20; x < 50; x += 2) plantTree(grid, x, y, 1234);
+  paintWaterTile(grid, 60, 24);
+  igniteRadius(grid, 44, 36, 2, 1234);
+  grid.recount();
+  return grid;
+}
+
+check('save/restore preserva contadores e tiles', () => {
+  const g1 = mundoSalvo();
+  const store = fakeStorage();
+  const bytes = saveGame({
+    grid: g1, seed: 1234, elapsed: 42,
+    bombs: { elapsed: 42, events: 2, nextEventAt: 60, lastTarget: { x: 10, y: 11 }, launched: 3, impacts: 2 },
+    camera: { x: 1200, y: 900, zoom: 1.3 },
+    state: { brushRadius: 3, tool: 'water' },
+  }, store);
+  assert(bytes > 0, 'nada foi salvo');
+
+  const { grid: g2 } = generateWorld(1234);
+  const saved = readSave(store);
+  assert(saved && saved.seed === 1234, 'save não foi lido');
+  const meta = saved.apply(g2);
+
+  assert(g2.treeCount === g1.treeCount, `árvores ${g2.treeCount} != ${g1.treeCount}`);
+  assert(g2.burningCount === g1.burningCount, `focos ${g2.burningCount} != ${g1.burningCount}`);
+  assert(g2.waterTotal === g1.waterTotal, `água ${g2.waterTotal} != ${g1.waterTotal}`);
+  assert(Math.abs(meta.elapsed - 42) < 0.01, `relógio ${meta.elapsed}`);
+  assert(meta.camera.zoom === 1.3 || Math.abs(meta.camera.zoom - 1.3) < 0.001, 'zoom');
+  assert(meta.ui.tool === 'water', 'ferramenta');
+  assert(meta.ui.brushRadius === 3, 'pincel');
+  assert(meta.bombs.lastTarget.x === 10 && meta.bombs.lastTarget.y === 11, 'último alvo');
+});
+check('restore reconstrói listas de trabalho do fogo', () => {
+  const g1 = mundoSalvo();
+  const store = fakeStorage();
+  saveGame({ grid: g1, seed: 1234, elapsed: 1, bombs: null, camera: null, state: null }, store);
+  const { grid: g2 } = generateWorld(1234);
+  readSave(store).apply(g2);
+  assert(g2.burningTiles.length === g2.burningCount, 'burningTiles inconsistente');
+  assert(g2.waterTiles.length === g2.waterCount, 'waterTiles inconsistente');
+  for (const i of g2.burningTiles) assert(g2.state[i] === STATE.BURNING, 'lista com tile não queimando');
+});
+check('denominador de cobertura continua congelado após restore', () => {
+  const g1 = mundoSalvo();
+  const store = fakeStorage();
+  saveGame({ grid: g1, seed: 1234, elapsed: 1, bombs: null, camera: null, state: null }, store);
+  const { grid: g2 } = generateWorld(1234);
+  const antes = g2.landTotal;
+  readSave(store).apply(g2);
+  assert(g2.landTotal === antes, `landTotal mudou: ${g2.landTotal} != ${antes}`);
+});
+check('save corrompido ou de outra versão é descartado', () => {
+  const store = fakeStorage();
+  store.setItem(SAVE_KEY, 'lixo-que-nao-e-base64');
+  assert(readSave(store) === null, 'lixo deveria ser descartado');
+  const g1 = mundoSalvo();
+  saveGame({ grid: g1, seed: 1234, elapsed: 1, bombs: null, camera: null, state: null }, store);
+  // corrompe a versão
+  const bom = store.getItem(SAVE_KEY);
+  const bytes = Uint8Array.from(atob(bom), (c) => c.charCodeAt(0));
+  bytes[2] = 99;
+  store.setItem(SAVE_KEY, btoa(String.fromCharCode.apply(null, bytes)));
+  assert(readSave(store) === null, 'versão errada deveria ser descartada');
+  clearSave(store);
+  assert(readSave(store) === null, 'clearSave não apagou');
+});
+check('save cabe folgado no localStorage (~5MB)', () => {
+  const g1 = mundoSalvo();
+  const buf = encodeState({ grid: g1, seed: 1234, elapsed: 0, bombs: null, camera: null, state: null });
+  const kb = (buf.byteLength * 4) / 3 / 1024;
+  assert(buf.byteLength < 200 * 1024, `buffer cru ${(buf.byteLength / 1024).toFixed(0)} KB`);
+  assert(kb < 400, `base64 ${kb.toFixed(0)} KB`);
 });
 
 console.log(failures ? `\n${failures} falha(s)` : '\ntudo ok');

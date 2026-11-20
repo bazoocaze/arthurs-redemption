@@ -20,6 +20,9 @@ const url = opts.url ?? 'http://localhost:8777/';
 // Expressão longa via shell perde caracteres; `--evalFile=arquivo.js` é o
 // caminho seguro para probes grandes (medições, cenários com await).
 const evalExpr = opts.evalFile ? readFileSync(opts.evalFile, 'utf8') : opts.eval;
+// Teste de save/restore: roda o primeiro eval, recarrega e roda o segundo no
+// estado retomado, devolvendo { antes, depois }.
+const evalExpr2 = opts.evalFile2 ? readFileSync(opts.evalFile2, 'utf8') : opts.eval2;
 const waitMs = Number(opts.wait ?? 1200);
 const width = Number(opts.width ?? 1280);
 const height = Number(opts.height ?? 800);
@@ -76,6 +79,10 @@ const chrome = spawn(
   ],
   { stdio: ['ignore', 'ignore', 'ignore'] },
 );
+
+// --thenReload: recarrega a página depois do primeiro --evalFile e roda
+// --evalFile2 no estado retomado (teste de save/restore).
+const THEN_RELOAD = opts.thenReload === '1' || opts.thenReload === 'true' || opts.thenReload === '';
 
 const cleanup = () => {
   try {
@@ -163,6 +170,20 @@ try {
     }
   }
 
+  let result2;
+  if (evalExpr2) {
+    await send('Page.reload', { ignoreCache: false });
+    await sleep(waitMs);
+    const r = await send('Runtime.evaluate', {
+      expression: evalExpr2,
+      returnByValue: true,
+      awaitPromise: true,
+    });
+    result2 = r.exceptionDetails
+      ? { __evalError: r.exceptionDetails.exception?.description ?? r.exceptionDetails.text }
+      : r.result?.value;
+  }
+
   if (opts.shot) {
     const shot = await send('Page.captureScreenshot', { format: 'png' });
     writeFileSync(opts.shot, Buffer.from(shot.data, 'base64'));
@@ -171,7 +192,8 @@ try {
   // Nao usar process.exit() aqui: ele corta o stdout escrito em pipe.
   // O callback do write garante que o JSON saiu inteiro antes de sair.
   const code = errors.length ? 1 : 0;
-  process.stdout.write(JSON.stringify({ url, errors, logs, result }, null, 2) + '\n', () => {
+  const saida = evalExpr2 ? { url, errors, logs, antes: result, depois: result2 } : { url, errors, logs, result };
+  process.stdout.write(JSON.stringify(saida, null, 2) + '\n', () => {
     ws.close();
     cleanup();
     process.exit(code);

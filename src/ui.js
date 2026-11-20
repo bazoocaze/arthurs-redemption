@@ -10,6 +10,7 @@ export function createUi(state, hooks) {
   const brushVal = document.getElementById('brush-val');
   const brushBtn = document.getElementById('brush-btn');
   const muteBtn = document.getElementById('mute-btn');
+  const resetBtn = document.getElementById('reset-btn');
   const hud = document.getElementById('hud');
   const firePill = document.getElementById('fire-pill');
   const fireCount = document.getElementById('fire-count');
@@ -22,6 +23,28 @@ export function createUi(state, hooks) {
   }
   muteBtn.addEventListener('click', () => {
     hooks.toggleMute();
+  });
+
+  // Recomeçar: dois toques em até 3 s, sem modal. O primeiro arma o botão.
+  let resetArmado = 0;
+  let resetTimer = 0;
+  const desarmar = () => {
+    resetArmado = 0;
+    resetBtn.classList.remove('armed');
+    resetBtn.textContent = '↺';
+  };
+  resetBtn.addEventListener('click', () => {
+    const agora = performance.now();
+    if (resetArmado && agora - resetArmado < 3000) {
+      desarmar();
+      hooks.restart();
+      return;
+    }
+    resetArmado = agora;
+    resetBtn.classList.add('armed');
+    resetBtn.textContent = '⚠️';
+    clearTimeout(resetTimer);
+    resetTimer = setTimeout(desarmar, 3000);
   });
 
   brushBtn.addEventListener('click', () => {

@@ -17,13 +17,24 @@ import {
 } from './render/bombs.js';
 import { createUi } from './ui.js';
 import { createAudio } from './audio.js';
+import { readSave, saveGame, clearSave } from './save.js';
 import { hash2 } from './rng.js';
 
 const params = new URLSearchParams(location.search);
 const DEBUG = params.get('debug') === '1';
 // 0 = escondido, 1 = chip de fps/redraw, 2 = painel completo (?debug=1)
 let dbgMode = DEBUG ? 2 : 1;
-const SEED = params.get('seed') ? Number(params.get('seed')) | 0 : (Math.random() * 0xffffffff) | 0;
+// `?fresh=1` ignora (e apaga) o save: útil para testar o começo do jogo.
+const FRESH = params.get('fresh') === '1';
+if (FRESH) clearSave();
+const SAVED = FRESH ? null : readSave();
+// Sem seed na URL, retomar o save manda: o mundo é regenerado com a MESMA seed,
+// então terreno, rios e denominador de cobertura saem idênticos.
+const SEED = params.get('seed')
+  ? Number(params.get('seed')) | 0
+  : SAVED
+    ? SAVED.seed
+    : (Math.random() * 0xffffffff) | 0;
 
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d', { alpha: false });
@@ -141,6 +152,12 @@ const hooks = {
     ui.setMuted(mudo);
     return mudo;
   },
+  /** Recomeçar do zero: apaga o save e recarrega (confirmação em ui.js). */
+  restart() {
+    saveDescartado = true;
+    clearSave();
+    location.reload();
+  },
   setBrushRadius(r) {
     state.brushRadius = r;
     ui.updateHud();
@@ -153,6 +170,37 @@ prebuildSprites();
 const ui = createUi(state, hooks);
 ui.setWaterInitial(grid.waterTotal);
 ui.setMuted(audio.muted); // estado do mudo é persistido em localStorage
+
+// --- retomada -------------------------------------------------------------
+// A ordem importa: `waterInitial` é o reservatório do mundo recém-gerado (para a
+// barra de água mostrar o que já foi gasto), e só depois o save sobrescreve o
+// estado. A câmera também é restaurada antes de `resize()` para o `fitWorld`
+// não sobrescrever a posição salva.
+let retomado = false;
+if (SAVED) {
+  const meta = SAVED.apply(grid);
+  if (meta) {
+    retomado = true;
+    bombs.elapsed = meta.bombs.elapsed;
+    bombs.events = meta.bombs.events;
+    bombs.launched = meta.bombs.launched;
+    bombs.impacts = meta.bombs.impacts;
+    bombs.lastTarget = meta.bombs.lastTarget;
+    // Um save podia trazer `nextEventAt` no passado (game salvo no instante do
+    // evento); dar 8 s de respiro evita tomar bomba no primeiro frame.
+    bombs.nextEventAt = Math.max(meta.bombs.nextEventAt, bombs.elapsed + 8);
+    if (meta.camera.zoom > 0) {
+      camera.x = meta.camera.x;
+      camera.y = meta.camera.y;
+      camera.zoom = meta.camera.zoom;
+      fitted = true;
+    }
+    state.brushRadius = meta.ui.brushRadius || state.brushRadius;
+    state.tool = meta.ui.tool || state.tool;
+    ui.refreshTool();
+    ui.updateHud();
+  }
+}
 
 // --- viewport -------------------------------------------------------------
 
@@ -276,11 +324,40 @@ function updateFire(dt) {
   updateBombs(bombs, grid, dt, SEED);
   updateBombFx(bombFx, dt);
   audio.update(dt, grid.burningCount, bombs);
+  tickSave(dt);
   // NÃO marcar `dirty` aqui: o fogo é animação, não entrada. Quem pede o frame é
   // `animFrame()`, que obedece ao teto de `TIME.animHz`.
 }
 
 const shake = { t: 0, x: 0, y: 0 };
+
+// --- save -----------------------------------------------------------------
+// 10 s de intervalo: serializar custa ~5 ms (123 KB de base64), invisível num
+// frame de 16 ms, mas não é grátis a 60 fps. Também salva ao sair da aba.
+const SAVE_INTERVAL = 10;
+let saveAcc = 0;
+// Recomeçar apaga o save e recarrega — mas `pagehide`/`visibilitychange` salvam
+// ao sair, e salvariam de novo o estado que acabou de ser descartado.
+let saveDescartado = false;
+
+function salvar() {
+  if (saveDescartado) return 0;
+  return saveGame({
+    grid, seed: SEED, elapsed: bombs.elapsed, bombs, camera, state,
+  });
+}
+
+function tickSave(dt) {
+  saveAcc += dt;
+  if (saveAcc < SAVE_INTERVAL) return;
+  saveAcc = 0;
+  salvar();
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') salvar();
+});
+window.addEventListener('pagehide', salvar);
 
 function render() {
   const t0 = performance.now();
@@ -392,8 +469,19 @@ window.addEventListener('keydown', (e) => {
   applyDbgMode();
 });
 
+// PWA: service worker deixa o jogo instalável e offline. `?nosw=1` desliga
+// (útil para depurar cache preso).
+if ('serviceWorker' in navigator && !params.get('nosw')) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  });
+}
+
 applyDbgMode();
 requestAnimationFrame(frame);
 
 // Hook de inspeção manual no console (usado pelos probes headless).
-window.__game = { grid, camera, state, stats, hooks, fx, bombs, bombFx, audio, seed: SEED };
+window.__game = {
+  grid, camera, state, stats, hooks, fx, bombs, bombFx, audio,
+  seed: SEED, retomado, salvar, clearSave,
+};

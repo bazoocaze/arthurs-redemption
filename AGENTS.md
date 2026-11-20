@@ -48,7 +48,13 @@ ele reporta exceções/console, avalia JS e salva screenshot. Sempre rodar
 **Teclas**: `1`/`2`/`3` ferramenta · `[`/`]` raio do pincel · `F` enquadra ·
 setas/WASD movem · `` ` `` alterna perf/painel · `I` acende fogo e `B` solta uma
 bomba no cursor (só com `?debug=1`). `M` liga/desliga o som (persistido em
-localStorage). Próximo marco: M7 (PWA + save).
+localStorage). Próximo marco: M9 (recursos e objetivo).
+
+**Save/PWA:** `?fresh=1` ignora o save, `?nosw=1` não registra o service worker.
+Ao mudar arquivos do jogo, **bumpe `VERSION` em `sw.js`**. Ícones: `node
+tools/icons.mjs` regenera os PNG do manifest. Teste de retomada:
+`node tools/probe.mjs --url=...?nosw=1 --evalFile=/tmp/a.js --evalFile2=/tmp/b.js`
+(roda A, recarrega, roda B).
 
 **Métrica de perf**: `window.__game.stats` traz `fps`, `redrawPct`, `redrawHz`
 (fração de frames redesenhados na última janela de 0,5 s) e o custo por camada
