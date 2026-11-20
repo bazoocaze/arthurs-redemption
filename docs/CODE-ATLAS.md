@@ -34,34 +34,40 @@ Regra de ouro: **a simulação não conhece pixels; o render não conhece regras
 `grid.js` é o único dono do estado do mundo. Módulos de simulação recebem
 `(grid, dt, ctx)` e mutam o grid. O render lê o grid e mais nada.
 
-## 2. Mapa de arquivos `[planejado]`
+## 2. Mapa de arquivos
 
-| Arquivo | Responsabilidade | Não deve conter |
-| --- | --- | --- |
-| `index.html` | canvas, HUD, palheta, `<link rel=manifest>`, registro do SW | lógica de jogo |
-| `manifest.webmanifest` | metadados PWA | — |
-| `sw.js` | cache do app shell, versionamento | estado de jogo |
-| `tools/serve.sh` | servidor estático de dev | — |
-| `src/main.js` | bootstrap, loop RAF, acumulador de `dt`, ordem de update/render | regras de fogo/bomba |
-| `src/config.js` | **todos** os tunables e cores | lógica |
-| `src/rng.js` | PRNG determinístico (mulberry32) | — |
-| `src/grid.js` | arrays SoA do mundo, acessores, `invalidateTile` | desenho |
-| `src/generator.js` | terreno inicial + rios | simulação em tempo real |
-| `src/iso.js` | conversões iso↔tela, geometria do losango | estado |
-| `src/camera.js` | pan/zoom, `worldToScreen`, `viewBounds` | input bruto |
-| `src/input.js` | eventos pointer/wheel → intents (brush, pan, zoom) | regras de fogo |
-| `src/sim/fire.js` | ignição, propagação, extinção, cinzas, decaimento | áudio/partículas |
-| `src/sim/bombs.js` | agendador de eventos, alvos, voo, impacto | desenho das partículas |
-| `src/sim/water.js` | drenagem de `waterVol`, sucção do tile mais próximo, spray | regras de fogo |
-| `src/sim/score.js` | cobertura (terra vs árvore), estados de vitória/seca | render |
-| `src/render/terrain.js` | camada assada em chunks (terra, água, árvores, cinzas) | simulação |
-| `src/render/entities.js` | overlay dinâmico (fogo, spray, sombra/highlight) | regras |
-| `src/render/particles.js` | fumaça, explosão, respingos (pool fixo) | estado do mundo |
-| `src/audio.js` | WebAudio procedural | estado de jogo |
-| `src/save.js` | (de)serialização versionada | regras |
-| `src/ui.js` | palheta, HUD, mudo, recomeçar | simulação |
+`✅` existe e roda · `⏳` planejado (ainda não escrito)
 
-## 3. Modelo de dados (`grid.js`) `[planejado]`
+| Arquivo | Status | Responsabilidade | Não deve conter |
+| --- | --- | --- | --- |
+| `index.html` | ✅ | canvas, estilos, hint, `<link rel=manifest>`, entrada do módulo | lógica de jogo |
+| `manifest.webmanifest` | ✅ | metadados PWA | — |
+| `icons/icon.svg` | ✅ | ícone | — |
+| `sw.js` | ⏳ | cache do app shell, versionamento | estado de jogo |
+| `tools/serve.sh` | ✅ | servidor estático de dev | — |
+| `tools/check.mjs` | ✅ | testes de sanidade sem browser (iso, gerador, determinismo) | DOM |
+| `tools/probe.mjs` | ✅ | probe CDP headless: erros, `--eval`, screenshot | lógica de jogo |
+| `src/main.js` | ✅ | bootstrap, loop RAF, `dt` clampado, dirty de frame, debug | regras de fogo/bomba |
+| `src/config.js` | ✅ | **todos** os tunables e cores | lógica |
+| `src/rng.js` | ✅ | `mulberry32`, `hash2`, `noise2`, `fbm2`, `randInt` | — |
+| `src/grid.js` | ✅ | arrays SoA do mundo, contadores, `coverage()` | desenho |
+| `src/generator.js` | ✅ | terreno inicial + rios de borda a borda | simulação em tempo real |
+| `src/iso.js` | ✅ | `tileWorldX/Y`, `tileCenterY`, `worldToTile` | estado |
+| `src/camera.js` | ✅ | pan/zoom, `worldToScreen`, `signature()` (dirty) | input bruto |
+| `src/input.js` | ✅ | pointer/wheel → pan, zoom, tile sob o cursor | regras de fogo |
+| `src/render/terrain.js` | ✅ | camada de terreno (hoje: batching por cor; M2: chunks) | simulação |
+| `src/render/overlay.js` | ✅ | highlight do tile sob o cursor | regras |
+| `src/sim/fire.js` | ⏳ | ignição, propagação, extinção, cinzas, decaimento | áudio/partículas |
+| `src/sim/bombs.js` | ⏳ | agendador de eventos, alvos, voo, impacto | desenho das partículas |
+| `src/sim/water.js` | ⏳ | drenagem de `waterVol`, sucção do tile mais próximo, spray | regras de fogo |
+| `src/sim/score.js` | ⏳ | cobertura, pontuação, estados de vitória/seca | render |
+| `src/render/entities.js` | ⏳ | overlay dinâmico (fogo, spray, árvores em z-order) | regras |
+| `src/render/particles.js` | ⏳ | fumaça, explosão, respingos (pool fixo) | estado do mundo |
+| `src/audio.js` | ⏳ | WebAudio procedural | estado de jogo |
+| `src/save.js` | ⏳ | (de)serialização versionada | regras |
+| `src/ui.js` | ⏳ | palheta, HUD, mudo, recomeçar | simulação |
+
+## 3. Modelo de dados (`grid.js`)
 
 Grade fixa `GRID_W × GRID_H` (96×96). Arrays paralelos (SoA) para cache-friendly
 e serialização trivial. Índice `i = y * GRID_W + x`.
@@ -71,6 +77,7 @@ e serialização trivial. Índice `i = y * GRID_W + x`.
 | `terrain` | Uint8 | `0` terra, `1` água |
 | `tree` | Uint8 | `0` vazio, `1` árvore |
 | `species` | Uint8 | índice da espécie (3–4), escolhida por ruído espacial + jitter |
+| `tone` | Uint8 | variação de tom da terra (só render, definido no `generator`) |
 | `state` | Uint8 | `0` idle, `1` queimando, `2` cinza |
 | `fireHp` | Uint8 | aplicações de água restantes para debelar |
 | `ashT` | Float32 | segundos desde que virou cinza (decai em 60s) |
@@ -121,6 +128,12 @@ Dois níveis distintos — não confundir:
 2. **Dirty de frame (dinâmico).** Se `camera` não mudou, nenhum chunk foi
    reassado, e não há partículas/bombas/fogo ativos, o frame anterior do canvas
    é reaproveitado (não redesenha nada). `renderer.needsFrame` é o flag.
+
+**Estado atual (M1):** o nível 2 está implementado em `main.js`
+(`needsFrame()` compara assinatura da câmera, tile sob o cursor e o tick do
+brilho da água). O nível 1 (chunks assados) ainda não existe: `drawTerrain`
+redesenha os tiles visíveis acumulando losangos em um `Path2D` por cor, o que
+custa ~6 `fill()` por frame em vez de um por tile.
 
 O que é dinâmico e sempre desenhado por frame (sobre o assado): fogo, fumaça,
 bombas em voo, explosões, respingos, highlight do brush, cursor.
@@ -206,9 +219,18 @@ Recordes em `localStorage` via `save.js`.
 `?debug=1` liga overlay com FPS, chunks reassados/frame, contagem de tiles por
 estado, bombas ativas e botão de "ignir 1 tile no centro". `?seed=N` fixa o PRNG.
 
-## 10. Comandos
+## 10. Comandos e verificação
 
 ```sh
-tools/serve.sh                     # ou: python3 -m http.server 8080
-git status / git diff              # sem build, sem lint configurado ainda
+tools/serve.sh 8777                     # dev server (porta opcional)
+node tools/check.mjs                    # testes de sanidade sem browser
+node tools/probe.mjs --url="http://localhost:8777/?seed=1234&debug=1" \
+  --wait=1500 --eval="window.__game.stats" --shot=/tmp/shot.png
 ```
+
+`tools/probe.mjs` sobe um Chromium headless via CDP, coleta exceções e
+mensagens de console, avalia `--eval` e salva screenshot. Sai com código 1 se
+houver erro de página. É a forma padrão de verificar UI sem abrir navegador.
+
+`window.__game = { grid, camera, state, stats, seed }` fica exposto para o
+probe e para inspeção manual no console.

@@ -17,29 +17,34 @@ Convenções de status:
 - [x] `git init` + `.gitignore` (brainstorm.txt não versionado)
 - [x] `AGENTS.md` com índice da documentação
 - [x] `docs/BACKLOG.md`, `docs/FEATURES.md`, `docs/CODE-ATLAS.md`
-- [ ] Estrutura de pastas `src/`, `src/sim/`, `src/render/`, `icons/`
-- [ ] `index.html` com canvas fullscreen + `<noscript>` de aviso
+- [x] Estrutura de pastas `src/`, `src/render/`, `icons/`
+- [x] `index.html` com canvas fullscreen + `<noscript>` de aviso
 - [x] `tools/serve.sh` (`python3 -m http.server`) e instrução no AGENTS.md
-- [ ] `src/config.js` centralizando todos os tunables (sem magic numbers no resto)
-- [ ] `src/rng.js` — PRNG determinístico (mulberry32), seed salva no save
+- [x] `src/config.js` centralizando todos os tunables (sem magic numbers no resto)
+- [x] `src/rng.js` — PRNG determinístico (mulberry32), seed salva no save
+- [x] `manifest.webmanifest` + ícone SVG (base PWA, sem service worker ainda)
+- [x] Harness de verificação: `tools/check.mjs` (sem browser) e `tools/probe.mjs` (CDP headless)
 
 ## M1 — Mundo isométrico e câmera
 
-- [ ] `src/iso.js`: `tileToScreen`, `screenToTile`, caminho do losango do tile
-- [ ] `src/camera.js`: pan (arrasto botão direito/meio, dois dedos), zoom (wheel/pinça) com clamp
-- [ ] `src/grid.js`: grade 96x96 em arrays paralelos (SoA): `terrain`, `tree`, `fireHp`, `ashT`, `wet`
-- [ ] `src/generator.js`: terreno marrom com variação de tom + 1–3 rios serpenteando
-- [ ] Render base: terra desenhada com highlight/sombra iso, ordenação back-to-front
-- [ ] Culling: só desenhar tiles dentro do viewport (`viewBounds` da câmera)
-- [ ] Medir perf: alvo 60fps com viewport cheio de árvores
+- [x] `src/iso.js`: conversões tile↔mundo e centro do losango
+- [x] `src/camera.js`: pan (1 dedo / botão esquerdo por enquanto) e zoom (wheel/pinça) com clamp
+- [x] `src/grid.js`: grade 96x96 em arrays paralelos (SoA), contadores e `coverage()`
+- [x] `src/generator.js`: terra com tons suaves + 1–3 rios serpenteando de borda a borda
+- [x] Render base: terra em losangos, batching por cor (poucos `fill` por frame)
+- [x] Culling no viewport (~870 tiles a zoom 1.1)
+- [x] Medir perf: 60fps a zoom 1.1 e 53fps a zoom-out total (Chromium headless, sem GPU)
+- [ ] Highlight/sombra de relevo no terreno (fica flat; árvores vão dominar a leitura)
+- [ ] Pan com botão direito/meio dedicado (hoje o esquerdo também arrasta; muda em M3)
+- [ ] Medir perf com viewport cheio de árvores (depende de M3)
 
 ## M2 — Dirty flags / render em camadas
 
+- [x] Skip de frame: se nada mudou e a câmera está parada, não redesenhar (dirty de frame já ativo)
 - [ ] Chunks assados (ex. 8x8 tiles) em canvases offscreen para terreno+árvores+cinzas
 - [ ] `invalidateTile(x,y)` marca só o chunk afetado
 - [ ] Overlay dinâmico (fogo, fumaça, bombas, spray) redesenhado por frame
-- [ ] Skip de frame: se nada mudou e a câmera está parada, não redesenhar (blit do frame anterior)
-- [ ] Contador de debug (chunks redesenhados/s, fps) atrás de flag `?debug=1`
+- [ ] Contador de debug de chunks redesenhados/s (fps e tiles visíveis já existem)
 
 ## M3 — Pintura (floresta / água)
 

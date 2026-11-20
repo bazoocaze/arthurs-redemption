@@ -30,10 +30,16 @@ Fluxo obrigatório ao trabalhar aqui:
 ## Comandos
 
 ```sh
-tools/serve.sh                 # dev server (quando existir)
-python3 -m http.server 8080    # alternativa sem script
-# http://localhost:8080  |  ?debug=1  |  ?seed=123
+tools/serve.sh 8777            # dev server (porta padrão 8777)
+node tools/check.mjs          # testes de sanidade sem browser
+node tools/probe.mjs --url="http://localhost:8777/?seed=1234&debug=1" \
+  --wait=1500 --eval="window.__game.stats" --shot=/tmp/shot.png
+# http://localhost:8777  |  ?debug=1  |  ?seed=123
 ```
+
+Verificação de UI é feita com `tools/probe.mjs` (Chromium headless via CDP):
+ele reporta exceções/console, avalia JS e salva screenshot. Sempre rodar
+`check.mjs` + `probe.mjs` antes de marcar tarefa como concluída.
 
 ## Convenções de código
 
