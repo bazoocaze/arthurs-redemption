@@ -151,9 +151,12 @@ normalmente.
 | `ASH_DECAY` | 60 s | cinza → terra |
 | `BRUSH_RADIUS` | 2–3 | raio 1 é inviável para cobrir ~8000 tiles |
 | `WATER_TILE_MAX` | ~10 | volume por tile de água |
+| `WATER_PAINT_BASE` | 2 | custo base para pintar 1 tile de água |
+| `WATER_PAINT_DIST_MULT` | 1 | custo = `BASE * (1 + dist até água natural)` |
 | `SPRAY_COST` | 1 / hit | cobrado do tile de água mais próximo |
 | `SPRAY_REACH` | ~12 tiles | alcance da sucção |
-| `COVERAGE_GOAL` | 0.90 | vitória |
+| `WIN_COVERAGE` | 0.90 | vitória (denominador congelado na geração) |
+| `SCORE_PAR_TIME` | 480 s | PAR de tempo da pontuação |
 | `SAVE_EVERY` | ~10 s | autosave |
 
 Balanceamento se ajusta **aqui**, nunca espalhado pelo código.
@@ -166,6 +169,28 @@ fogo = ruído branco → bandpass com amplitude proporcional à área queimando;
 explosão = burst de ruído + sweep de lowpass descendente;
 bomba em voo = ruído com pitch subindo (whoosh).
 Um `masterGain` para mudo, persistido no save.
+
+## 7b. Estados de jogo e pontuação
+
+Máquina de estados em `main.js` (não espalhar `if` de fim de jogo pelos módulos):
+
+```
+playing ──cobertura >= 0.90──▶ victory
+   │
+   └──aguaTotal == 0 && existe fogo──▶ drought
+```
+
+`src/sim/score.js` calcula, para os dois desfechos:
+
+```
+score = 1000 * coverage
+      +  500 * (waterLeft / waterTotal)
+      +  500 * max(0, (PAR - elapsed) / PAR)
+```
+
+`coverage = arvoresVivas / initialLandTiles` (congelado na geração; cinza e
+água pintada contam contra). Conceito S/A/B/C/D por faixa, exibido como letra.
+Recordes em `localStorage` via `save.js`.
 
 ## 8. Como estender
 

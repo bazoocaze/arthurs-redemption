@@ -95,16 +95,28 @@ Convenções de status:
 - [ ] Botão "recomeçar" com confirmação (2 toques, sem modal de texto longo)
 - [ ] Testar instalação no Chrome e retomada offline
 
-## M9 — Recursos e objetivo (design pendente de confirmação)
+## M9 — Recursos e objetivo (decidido)
 
-- [!] Recarga de rio: nenhuma (arco finito) ou lenta (endless)? — decisão do autor
-- [!] Anti-moat: restringir pintura de água a adjacente a água existente e/ou cobrar volume — decisão do autor
+- [x] Recarga de rio: **nenhuma** (arco finito de ~10–12 min, termina em seca)
+- [x] Pintar água custa volume: `2 * (1 + distância até água natural)` por tile
+- [x] Denominador da cobertura congelado na geração (`initialLandTiles`)
+- [x] Seca + fogo ativo = tela final satírica; 90% = vitória e recomeça
 - [ ] `waterVol` por tile de água + drenagem ao apagar fogo (consumo por aplicação)
-- [ ] Spray consome do tile de água mais próximo dentro de um raio; sem água no raio = spray seco
-- [ ] Cobertura: contador `tiles terra` vs `tiles árvore` (meta 90%), HUD sem texto
-- [ ] Estado de vitória (cobertura >= 90%) e estado de seca sem água + fogo ativo
-- [ ] Tela final satírica (opcional, alinhado ao contexto do Arthur)
-- [ ] Balancear reservatório total para arco de ~8–12 min
+- [ ] Spray consome do tile de água mais próximo dentro do raio; sem água no raio = spray seco
+- [ ] Custo de pintura de água com multiplicador por distância até água natural (fecha o exploit do moat)
+- [ ] Cobertura: contador árvores / `initialLandTiles` (meta 90%)
+- [ ] Transições de estado: `playing` → `victory` | `drought` (seca com fogo ativo)
+- [ ] Tela final satírica com mensagem para o Arthur
+- [ ] Balancear reservatório total para arco de ~10–12 min
+
+## M10 — Pontuação
+
+- [ ] `score = 1000*cobertura + 500*(agua_restante/agua_total) + 500*rapidez`
+- [ ] PAR de tempo (~8 min) como tunável
+- [ ] Conceito S/A/B/C/D por faixas, exibido como letra grande
+- [ ] Tela final com stats por ícone: árvores vivas, tempo, água restante, árvores perdidas, área queimada
+- [ ] Recordes em localStorage (melhor score, melhor cobertura, vitória mais rápida)
+- [ ] Contador de cobertura e medidor de água no HUD, sem texto
 
 ## M8 — Polimento
 
@@ -120,6 +132,5 @@ Convenções de status:
 
 - [x] Sem vento — decidido: fogo sem direção preferencial
 - [x] Espécies de árvore — decidido: 3–4 espécies + tiles de agrupamento
-- [ ] Modo "lição de moral": mensagem final satírica quando o Arthur perde a
-      floresta? (opcional, alinhado ao contexto)
+- [x] Recarga de rio, anti-moat, finais e denominador — decididos (M9)
 - [ ] Espécie influenciar inflamabilidade (ex. pinheiro queima mais rápido)?
