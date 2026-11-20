@@ -10,7 +10,7 @@
 // para jogar offline.
 //
 // Ao mudar arquivos do jogo, **bumpe a VERSION** para o shell ser reescrito.
-const VERSION = 'ar-v15';
+const VERSION = 'ar-v16';
 const SHELL = [
   '.',
   'index.html',
