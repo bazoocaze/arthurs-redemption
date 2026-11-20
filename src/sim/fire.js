@@ -57,7 +57,13 @@ export function ignite(grid, x, y, seed = 0) {
   grid.fireHp[i] = hp;
   grid.burningTiles.push(i);
   grid.burningCount++;
+  pushEvent(grid, 'ignite', x, y);
   return true;
+}
+
+function pushEvent(grid, type, x, y, extra) {
+  if (grid.events.length >= 256) return;
+  grid.events.push(extra ? { type, x, y, ...extra } : { type, x, y });
 }
 
 /** Ignição em disco (usado pelo impacto da bomba em M5 e pelo debug). */
@@ -182,6 +188,8 @@ function toAsh(grid, i) {
   grid.burningCount--;
   grid.ashCount++;
   grid.ashTiles.push(i);
+  const ax = i % grid.w;
+  pushEvent(grid, 'ash', ax, (i - ax) / grid.w);
 }
 
 /**
@@ -209,6 +217,7 @@ export function sprayTile(grid, x, y, seed = 0) {
   debit(grid, i, cost);
 
   soak(grid, x, y);
+  pushEvent(grid, 'spray', x, y);
   if (burning) {
     grid.fireHp[i] = grid.fireHp[i] > 1 ? grid.fireHp[i] - 1 : 0;
     if (grid.fireHp[i] === 0) extinguish(grid, i);
@@ -251,6 +260,8 @@ export function extinguish(grid, i) {
   grid.burningCount--;
   const k = grid.burningTiles.indexOf(i);
   if (k >= 0) removeAt(grid.burningTiles, k);
+  const x = i % grid.w;
+  pushEvent(grid, 'extinguish', x, (i - x) / grid.w);
   return true;
 }
 

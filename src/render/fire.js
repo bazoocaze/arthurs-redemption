@@ -15,7 +15,37 @@ const HW = TILE_W / 2;
 const HH = TILE_H / 2;
 
 export function createFx() {
-  return { smoke: [], acc: 0, sprite: null, flames: null, glow: null, seedCounter: 0 };
+  return {
+    smoke: [], steam: [], acc: 0,
+    sprite: null, steamSprite: null, flames: null, glow: null,
+    seedCounter: 0,
+  };
+}
+
+/**
+ * Vapor: a água batendo no fogo. Diferente da fumaça em TUDO — branco em vez de
+ * cinza, vida curta (0,5–0,9 s) em vez de segundos, sobe rápido e é pequeno.
+ * É o feedback de "acertei": a fumaça é o fogo falando, o vapor é a água.
+ */
+export function spawnSteam(fx, x, y, quantidade = 2) {
+  const room = FIRE.maxSteam - fx.steam.length;
+  const n = Math.min(room, quantidade);
+  for (let k = 0; k < n; k++) {
+    const h1 = hash2(x * 17 + fx.seedCounter, y * 13, 41);
+    const h2 = hash2(y * 11, x * 7 + fx.seedCounter, 43);
+    fx.seedCounter++;
+    fx.steam.push({
+      wx: x + (h1 - 0.5) * 0.6,
+      wy: y + (h2 - 0.5) * 0.6,
+      vx: (h1 - 0.5) * 26,
+      rise: 0,
+      vrise: 34 + h2 * 30,
+      drag: 1.6,
+      t: 0,
+      life: 0.5 + h1 * 0.4,
+      size: 0.3 + h2 * 0.22,
+    });
+  }
 }
 
 const FLAME_FRAMES = 4;
@@ -77,6 +107,23 @@ function buildFlames(fx) {
   }
 }
 
+function steamSprite(fx) {
+  if (fx.steamSprite) return fx.steamSprite;
+  const size = 32;
+  const c = document.createElement('canvas');
+  c.width = size;
+  c.height = size;
+  const g = c.getContext('2d');
+  const grad = g.createRadialGradient(size / 2, size / 2, 1, size / 2, size / 2, size / 2);
+  grad.addColorStop(0, 'rgba(255, 255, 255, 0.92)');
+  grad.addColorStop(0.45, 'rgba(232, 245, 252, 0.5)');
+  grad.addColorStop(1, 'rgba(206, 228, 240, 0)');
+  g.fillStyle = grad;
+  g.fillRect(0, 0, size, size);
+  fx.steamSprite = c;
+  return c;
+}
+
 function smokeSprite(fx) {
   if (fx.sprite) return fx.sprite;
   const size = 48;
@@ -117,17 +164,28 @@ export function updateFx(fx, grid, dt) {
     fx.acc = 0;
   }
 
-  for (let k = 0; k < fx.smoke.length; ) {
-    const p = fx.smoke[k];
+  advance(fx.steam, dt);
+  advance(fx.smoke, dt);
+}
+
+/**
+ * Integra uma lista de partículas. Campos: `wx/wy` (tile), `rise` (px de mundo
+ * subindo), `vx/vrise`, `drag` (negativo = acelera pra cima), `t/life/size`.
+ * Manter os nomes iguais entre fumaça e vapor já custou um bug de NaN (spawn
+ * gravava `wx/wy`, update lia `x/y`, o desenho saía com NaN e nada aparecia).
+ */
+function advance(list, dt) {
+  for (let k = 0; k < list.length; ) {
+    const p = list[k];
     p.t += dt;
     if (p.t >= p.life) {
-      fx.smoke[k] = fx.smoke[fx.smoke.length - 1];
-      fx.smoke.pop();
+      list[k] = list[list.length - 1];
+      list.pop();
       continue;
     }
-    p.x += p.vx * dt;
-    p.y += p.vy * dt;
-    p.vy -= 6 * dt; // sobe acelerando
+    p.wx += p.vx * dt;
+    p.rise += p.vrise * dt;
+    p.vrise -= p.drag * dt;
     k++;
   }
 }
@@ -145,7 +203,9 @@ function spawnSmoke(fx, grid) {
     wx: x + (h1 - 0.5) * 0.5,
     wy: y + (h2 - 0.5) * 0.5,
     vx: (h1 - 0.5) * 14,
-    vy: 16 + h2 * 18,
+    rise: 0,
+    vrise: 16 + h2 * 18,
+    drag: -6, // acelera para cima
     t: 0,
     life: FIRE.smokeLifeMin + h1 * (FIRE.smokeLifeMax - FIRE.smokeLifeMin),
     size: 0.7 + h2 * 0.7,
@@ -164,9 +224,12 @@ function baseY(cam, x, y) {
 export function drawFx(ctx, grid, cam, time, fx) {
   const z = cam.zoom;
   const burning = grid.burningTiles;
-  if (!burning.length && !fx.smoke.length) return 0;
+  if (!burning.length && !fx.smoke.length && !fx.steam.length) return 0;
 
-  // --- fumaça primeiro (atrás das chamas) -----------------------------------
+  // Ordem: fumaça (fuligem, cinza) -> chamas -> vapor (branco, por cima).
+  // A ordem é a mensagem: o que está embaixo é o que o fogo solta; o vapor da
+  // água fica na frente porque é o que o jogador acabou de fazer.
+
   if (fx.smoke.length) {
     const sprite = smokeSprite(fx);
     for (let k = 0; k < fx.smoke.length; k++) {
@@ -175,7 +238,7 @@ export function drawFx(ctx, grid, cam, time, fx) {
       const alpha = (1 - lifeT) * (lifeT < 0.15 ? lifeT / 0.15 : 1) * 0.9;
       const size = (TILE_W * 0.62 * p.size * (0.7 + lifeT * 1.2)) * z;
       const sx = baseX(cam, p.wx, p.wy);
-      const sy = baseY(cam, p.wx, p.wy) - p.y * z * 0.5;
+      const sy = baseY(cam, p.wx, p.wy) - p.rise * z * 0.5;
       if (sx + size < 0 || sx - size > cam.viewW || sy + size < 0 || sy - size > cam.viewH) continue;
       ctx.globalAlpha = alpha;
       ctx.drawImage(sprite, sx - size / 2, sy - size / 2, size, size);
@@ -183,29 +246,43 @@ export function drawFx(ctx, grid, cam, time, fx) {
     ctx.globalAlpha = 1;
   }
 
-  if (!burning.length) return burning.length;
+  if (burning.length) {
+    if (!fx.flames) buildFlames(fx);
+    const frame = Math.floor(time * 9);
+    const tileH = TILE_H * z;
+    // Orçamento de chamas: acima disso desenha um subconjunto. A diferença
+    // visual é nula num incêndio grande, e protege o frame de um pico de 500 focos.
+    const stride = Math.max(1, Math.ceil(burning.length / FIRE.maxFlames));
+    for (let k = 0; k < burning.length; k += stride) {
+      const i = burning[k];
+      const x = i % grid.w;
+      const y = (i - x) / grid.w;
+      const sx = baseX(cam, x, y);
+      const sy = baseY(cam, x, y);
+      if (sx < -TILE_W * 2 || sx > cam.viewW + TILE_W * 2) continue;
+      if (sy < -TILE_H * 4 || sy > cam.viewH + TILE_H * 3) continue;
+      const spr = fx.flames[Math.floor(hash2(x, y, frame) * FLAME_FRAMES) % FLAME_FRAMES];
+      const flick = hash2(y * 3, x, frame + 3);
+      const grow = Math.min(1, 0.4 + grid.burnT[i] / (FIRE.burnTime * 0.4));
+      const h = tileH * (1.35 + flick * 0.5) * grow * (spr.height / FLAME_H);
+      const w = h * (spr.width / spr.height);
+      ctx.drawImage(spr, sx - w / 2, sy - h * 0.84, w, h);
+    }
+  }
 
-  // --- chamas: 1 drawImage por foco (halo já embutido no sprite) ------------
-  if (!fx.flames) buildFlames(fx);
-  const frame = Math.floor(time * 9);
-  const tileH = TILE_H * z;
-
-  // Orçamento de chamas: acima disso desenha um subconjunto. A diferença visual
-  // é nula num incêndio grande, e protege o frame de um pico de 500 focos.
-  const stride = Math.max(1, Math.ceil(burning.length / FIRE.maxFlames));
-  for (let k = 0; k < burning.length; k += stride) {
-    const i = burning[k];
-    const x = i % grid.w;
-    const y = (i - x) / grid.w;
-    const sx = baseX(cam, x, y);
-    const sy = baseY(cam, x, y);
-    if (sx < -TILE_W * 2 || sx > cam.viewW + TILE_W * 2 || sy < -TILE_H * 4 || sy > cam.viewH + TILE_H * 3) continue;
-    const spr = fx.flames[Math.floor(hash2(x, y, frame) * FLAME_FRAMES) % FLAME_FRAMES];
-    const flick = hash2(y * 3, x, frame + 3);
-    const grow = Math.min(1, 0.4 + grid.burnT[i] / (FIRE.burnTime * 0.4));
-    const h = tileH * (1.35 + flick * 0.5) * grow * (spr.height / FLAME_H);
-    const w = h * (spr.width / spr.height);
-    ctx.drawImage(spr, sx - w / 2, sy - h * 0.84, w, h);
+  if (fx.steam.length) {
+    const sp = steamSprite(fx);
+    for (let k = 0; k < fx.steam.length; k++) {
+      const p = fx.steam[k];
+      const lifeT = p.t / p.life;
+      const size = TILE_W * p.size * (0.6 + lifeT * 1.3) * z;
+      const sx = baseX(cam, p.wx, p.wy);
+      const sy = baseY(cam, p.wx, p.wy) - p.rise * z * 0.5;
+      if (sx + size < 0 || sx - size > cam.viewW || sy + size < 0 || sy - size > cam.viewH) continue;
+      ctx.globalAlpha = (1 - lifeT) * 0.72;
+      ctx.drawImage(sp, sx - size / 2, sy - size / 2, size, size);
+    }
+    ctx.globalAlpha = 1;
   }
 
   return burning.length;

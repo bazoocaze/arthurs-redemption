@@ -90,6 +90,7 @@ export const FIRE = {
   smokePerBurning: 0.9, // partículas por segundo por foco
   maxSmoke: 120, // orçamento de partículas (fumaça é o efeito mais caro)
   maxFlames: 260, // orçamento de chamas desenhadas (acima disso, stride)
+  maxSteam: 50, // orçamento de vapor (vida curta, então quase nunca chega no teto)
   smokeLifeMin: 2.2,
   smokeLifeMax: 4.5,
 };

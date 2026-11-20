@@ -35,6 +35,10 @@ export class Grid {
     this.ashTiles = [];
     this.wetTiles = [];
     this.simTick = 0; // contador de ticks (entra no hash => determinístico)
+    // Eventos da simulação para a camada visual (vapor, respingo, explosão).
+    // A sim não conhece canvas: ela empurra {type,x,y}, o main drena e o render
+    // transforma em partícula. Teto evita crescimento se ninguém drenar.
+    this.events = [];
 
     // Derivados.
     this.landTotal = 0; // denominador congelado da cobertura

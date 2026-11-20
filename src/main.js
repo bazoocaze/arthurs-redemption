@@ -8,7 +8,7 @@ import { drawTerrain } from './render/terrain.js';
 import { drawTrees } from './render/trees.js';
 import { prebuildSprites } from './render/sprites.js';
 import { drawBrush } from './render/overlay.js';
-import { createFx, updateFx, drawFx } from './render/fire.js';
+import { createFx, updateFx, drawFx, spawnSteam } from './render/fire.js';
 import { applyBrush, strokePath } from './sim/paint.js';
 import { stepFire, igniteRadius } from './sim/fire.js';
 import { createUi } from './ui.js';
@@ -52,9 +52,22 @@ let fitted = false;
 
 // --- pintura --------------------------------------------------------------
 
+// A sim empurra eventos (spray, ignição, extinção) e o render os traduz em
+// partículas. Mantém sim/paint e sim/fire sem nenhuma dependência de canvas.
+function drainEvents() {
+  const ev = grid.events;
+  for (let k = 0; k < ev.length; k++) {
+    const e = ev[k];
+    if (e.type === 'spray') spawnSteam(fx, e.x, e.y, 1);
+    else if (e.type === 'extinguish') spawnSteam(fx, e.x, e.y, 5);
+  }
+  ev.length = 0;
+}
+
 function paintPath(path) {
   let changed = 0;
   for (const t of path) changed += applyBrush(grid, t.x, t.y, state.brushRadius, state.tool, SEED);
+  drainEvents();
   if (changed) {
     dirty = true;
     ui.updateHud();
@@ -253,6 +266,7 @@ function frame(ts) {
 
   input.update(dt);
   updateFire(dt);
+  drainEvents();
 
   // Ordem: entrada renderiza na hora; animação obedece ao teto de `TIME.animHz`.
   let redrawn = dirty || inputFrame();
