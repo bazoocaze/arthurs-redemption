@@ -253,28 +253,48 @@ houver erro de página. É a forma padrão de verificar UI sem abrir navegador.
 `window.__game = { grid, camera, state, stats, seed }` fica exposto para o
 probe e para inspeção manual no console.
 
-## 11. Orçamento de chamadas nativas (Canvas2D)
+## 11. Perfil de render (medido, não estimado)
 
-Aprendizado medido neste projeto, em Chromium headless (rasterização em
-software — pior caso, sem GPU):
+**Metodologia importa.** Medir com `getImageData()` no fim do laço força o
+rasterizador a terminar e cobra a rasterização dentro da janela de medição; já o
+`performance.now()` em volta da chamada no loop real mede sobretudo JS + overhead
+de chamada (o raster vai para o compositor). Os dois números abaixo são do tipo
+"só JS", medidos em Chromium headless **sem GPU** (pior caso).
 
-| Operação, 9216 tiles | ms |
+| Experimento (9216 tiles, mundo inteiro) | ms |
 | --- | --- |
-| losango via `moveTo` + 3 `lineTo` + `closePath` (5 chamadas/tile) | 35 |
-| `Path2D.rect` + matriz iso (1 chamada/tile) | 4 |
-| `ctx.fillRect` (1 chamada/tile) | 4.4 |
+| losango: 9216 × (`moveTo`+3 `lineTo`+`closePath`) num `Path2D` | **163** |
+| retângulo: 9216 × `Path2D.rect` + 1 `fill` com matriz iso | **3,1** |
+| custo de rasterização dos mesmos retângulos (com flush) | +7 |
+| 1.000 `drawImage` de sprite 50×70 (destino = 3,5 Mpx) | 17 |
 
-O gargalo é a **quantidade de chamadas nativas** (~1,4 µs cada), não a área
-pintada. Regras que valem para o resto do projeto:
+A diferença de 163 → 3,1 ms **não** é a contagem de chamadas: é a **complexidade
+do path**. 9216 contornos fechados de 4 segmentos obrigam o Skia a tessellar 46
+mil segmentos; 9216 `rect` são contornos triviais e alinhados aos eixos. Regras
+que ficaram:
 
-1. **Batche em espaço de tile.** `ctx.transform(HW*z, HH*z, -HW*z, HH*z, tx, ty)`
-   converte o quadrado unitário no losango exato, então cada tile custa 1
-   `rect()` em vez de 5 chamadas.
-2. **Uma chamada por objeto.** Árvore desenhada à mão custava 6–19 chamadas
-   (17 ms / ~1200 árvores); sprite pré-renderizado custa 1 `drawImage`.
-   Sombras vão embutidas no sprite.
-3. **`rect()` em vez de linha/elipse** quando a forma cabe numa caixa.
-4. Meça com o overlay de debug (`renderMs`), não com o fps do RAF — o fps conta
-   ticks, não custo real (o dirty flag pula frames).
+1. **`rect` em espaço de tile + matriz iso.** O quadrado unitário vira o losango
+   exato sob `ctx.transform(HW*z, HH*z, -HW*z, HH*z, tx, ty)`: 1 contorno trivial
+   por tile, e o culling continua em espaço de tela.
+2. **Path complexo é armadilha.** Preferir poucos contornos simples a muitos
+   contornos "bonitos". Vale para fogo, cinzas e água.
+3. **Preenchimento é o piso em software**: ~4–5 ns/px com alpha, ~1 ns/px opaco.
+   Uma tela 1280×800 = 1 Mpx por camada. Em GPU real isso cai ~5–15×.
+4. **Overdraw é o custo escondido das árvores**: 2.000 sprites de ~2.000 px
+   pintam 4 Mpx, ou seja 4 telas. Por isso árvores custam mais que terreno em
+   zoom médio (7,6 ms vs 0,7 ms a 0,8×), e por isso existe o LOD.
+5. **Não medir com `getImageData`** e não confiar no fps do RAF: o dirty flag
+   pula frames. Use `?debug=1`, que mostra `terreno / árvores / overlay` separados.
 
-Em GPU real esses números são bem menores; trate-os como limite superior.
+### Custo por elemento para M4/M5 (medido)
+
+| Efeito | Custo |
+| --- | --- |
+| 300 chamas num único path (triângulos) | 0,22 ms |
+| 300 partículas de fumaça (sprite 36 px, alpha) | 3,5 ms |
+| bomba (sprite + sombra) | desprezível |
+| cinzas (path batchado por tom) | ~0,1 ms |
+
+Ou seja: fogo e bombas são baratos por serem **limitados por contagem**, não por
+área de tela. Fumaça é o único risco — daí o orçamento de partículas (≤120) e o
+sprite pequeno.

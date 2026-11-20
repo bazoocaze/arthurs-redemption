@@ -28,7 +28,10 @@ const state = {
   seed: SEED,
 };
 
-const stats = { fps: 0, renderMs: 0, drawnTiles: 0, drawnTrees: 0, frames: 0, framesSkipped: 0 };
+const stats = {
+  fps: 0, renderMs: 0, terrainMs: 0, treesMs: 0, overlayMs: 0,
+  drawnTiles: 0, drawnTrees: 0, frames: 0, framesSkipped: 0,
+};
 
 let dirty = true;
 let time = 0;
@@ -126,6 +129,7 @@ function updateDebug(dt) {
   dbgEl.textContent = [
     `fps ${stats.fps}`,
     `tiles ${stats.drawnTiles} · árvores ${stats.drawnTrees} · ${stats.renderMs.toFixed(1)}ms`,
+    `  terreno ${stats.terrainMs.toFixed(1)} · árvores ${stats.treesMs.toFixed(1)} · overlay ${stats.overlayMs.toFixed(1)}`,
     `zoom ${camera.zoom.toFixed(3)}`,
     `tool ${state.tool} r${state.brushRadius}`,
     `tile ${h ? `${h.x},${h.y}` : '—'}`,
@@ -160,12 +164,19 @@ function render() {
   const t0 = performance.now();
   ctx.fillStyle = COLORS.bg;
   ctx.fillRect(0, 0, camera.viewW, camera.viewH);
+  const t1 = performance.now();
   stats.drawnTiles = drawTerrain(ctx, grid, camera, time);
+  const t2 = performance.now();
   stats.drawnTrees = drawTrees(ctx, grid, camera);
+  const t3 = performance.now();
   if (state.hover && state.tool !== 'pan') {
     drawBrush(ctx, grid, camera, state.hover.x, state.hover.y, state.brushRadius);
   }
-  stats.renderMs = performance.now() - t0;
+  const t4 = performance.now();
+  stats.terrainMs = t2 - t1;
+  stats.treesMs = t3 - t2;
+  stats.overlayMs = t4 - t3;
+  stats.renderMs = t4 - t0;
 }
 
 let lastTs = 0;

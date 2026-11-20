@@ -151,6 +151,10 @@ try {
     result = r.exceptionDetails
       ? { __evalError: r.exceptionDetails.exception?.description ?? r.exceptionDetails.text }
       : r.result?.value;
+    if (result === undefined) {
+      // CDP recusa avaliacoes grandes ou com referencia circular sem avisar
+      result = { __noValue: r.error ?? r.result ?? null };
+    }
   }
 
   if (opts.shot) {
@@ -158,10 +162,14 @@ try {
     writeFileSync(opts.shot, Buffer.from(shot.data, 'base64'));
   }
 
-  console.log(JSON.stringify({ url, errors, logs, result }, null, 2));
-  ws.close();
-  cleanup();
-  process.exit(errors.length ? 1 : 0);
+  // Nao usar process.exit() aqui: ele corta o stdout escrito em pipe.
+  // O callback do write garante que o JSON saiu inteiro antes de sair.
+  const code = errors.length ? 1 : 0;
+  process.stdout.write(JSON.stringify({ url, errors, logs, result }, null, 2) + '\n', () => {
+    ws.close();
+    cleanup();
+    process.exit(code);
+  });
 } catch (e) {
   console.error('probe falhou:', e.message);
   cleanup();
