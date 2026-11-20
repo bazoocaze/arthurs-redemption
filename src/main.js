@@ -648,9 +648,29 @@ window.addEventListener('keydown', (e) => {
 
 // PWA: service worker deixa o jogo instalável e offline. `?nosw=1` desliga
 // (útil para depurar cache preso).
+//
+// `updateViaCache: 'none'` é o que faz a troca de versão aparecer: sem isso o
+// navegador pode servir o `sw.js` do cache HTTP (o GitHub Pages manda
+// `max-age=600`) e passar até 10 min achando que não há nada novo.
 if ('serviceWorker' in navigator && !params.get('nosw')) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js').catch(() => {});
+  window.addEventListener('load', async () => {
+    try {
+      const reg = await navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' });
+      // Aba/app volta à frente: pergunta agora, não daqui a 24 h.
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') reg.update().catch(() => {});
+      });
+    } catch {}
+  });
+
+  // Instalou uma versão nova (`skipWaiting` já assume o controle): recarrega
+  // uma vez para o jogador não ficar num app meio-velho. O save é gravado no
+  // `pagehide`, então o progresso não se perde.
+  let recarregando = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (recarregando) return;
+    recarregando = true;
+    if (document.visibilityState === 'visible') location.reload();
   });
 }
 

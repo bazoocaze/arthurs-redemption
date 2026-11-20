@@ -1,14 +1,16 @@
 // Service worker: deixa o jogo instalável e jogável offline.
 //
-// Estratégia **stale-while-revalidate** para o app shell: serve do cache na hora
-// (abertura instantânea, funciona offline) e busca em segundo plano para
-// atualizar a cópia. A escolha entre cache-first e network-first aqui foi por
-// causa do desenvolvimento: cache-first puro deixaria o jogo preso numa versão
-// antiga até o jogador limpar o cache, o que é péssimo enquanto o jogo muda.
+// Estratégia: **rede primeiro**, cache como rede de segurança offline.
 //
-// Ao mudar arquivos do jogo, **bumpe a VERSION** para o shell ser reescrito:
-// o navegador só rebaixa o que mudou porque cada request é revalidada.
-const VERSION = 'ar-v13';
+// Já foi stale-while-revalidate (abertura instantânea) e no Android isso virou
+// um problema: a primeira abertura servia o cache e a revalidação em segundo
+// plano nunca terminava, porque o Chrome congela a aba quando o app sai da
+// frente. O jogo ficava preso numa versão antiga por dias. Sacrifício aceito:
+// quem está online espera a rede (nada de cache na frente), e o cache existe
+// para jogar offline.
+//
+// Ao mudar arquivos do jogo, **bumpe a VERSION** para o shell ser reescrito.
+const VERSION = 'ar-v14';
 const SHELL = [
   '.',
   'index.html',
@@ -59,11 +61,11 @@ self.addEventListener('activate', (e) => {
   );
 });
 
-// Em localhost a ordem se inverte: **rede primeiro**, cache só como rede de
-// segurança. O jogo é desenvolvido aqui e stale-while-revalidate faria o
-// navegador mostrar o código do carregamento anterior depois de cada edição.
-const DEV = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(self.location.hostname);
-
+// **Rede primeiro, cache como rede de segurança.** A versão anterior era
+// stale-while-revalidate em produção, e no Android isso deixava o jogo preso:
+// a primeira abertura servia o cache e a atualização em segundo plano nunca
+// terminava (o Chrome congela a aba assim que o app sai da frente). Com rede
+// primeiro, quem está online sempre vê a última versão; offline o cache entra.
 self.addEventListener('fetch', (e) => {
   const req = e.request;
   if (req.method !== 'GET') return;
@@ -71,27 +73,16 @@ self.addEventListener('fetch', (e) => {
   if (url.origin !== self.location.origin) return;
 
   e.respondWith(
-    caches.open(VERSION).then(async (cache) => {
-      const emCache = await cache.match(req, { ignoreSearch: true });
-
-      if (DEV) {
-        try {
-          const resp = await fetch(req);
-          if (resp && resp.ok) cache.put(req, resp.clone());
-          return resp;
-        } catch {
-          return emCache || new Response('offline', { status: 503 });
-        }
+    (async () => {
+      const cache = await caches.open(VERSION);
+      try {
+        const resp = await fetch(req);
+        if (resp && resp.ok) cache.put(req, resp.clone());
+        return resp;
+      } catch {
+        const emCache = await cache.match(req, { ignoreSearch: true });
+        return emCache || new Response('offline', { status: 503 });
       }
-
-      // Produção: serve o cache na hora e atualiza por trás.
-      const rede = fetch(req)
-        .then((resp) => {
-          if (resp && resp.ok) cache.put(req, resp.clone());
-          return resp;
-        })
-        .catch(() => null);
-      return emCache || (await rede) || new Response('offline', { status: 503 });
-    }),
+    })(),
   );
 });
