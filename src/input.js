@@ -5,15 +5,15 @@
 import { BRUSH } from './config.js';
 import { worldToTile } from './iso.js';
 
+// Só setas. WASD saiu: `D` agora abre o painel de debug, e duas teclas com
+// significados diferentes para a mesma letra é armadilha de manutenção.
+//
+// O vetor é a direção que a VISTA deve percorrer na tela (não o conteúdo).
 const KEY_PAN = {
   ArrowLeft: [-1, 0],
   ArrowRight: [1, 0],
   ArrowUp: [0, -1],
   ArrowDown: [0, 1],
-  KeyA: [-1, 0],
-  KeyD: [1, 0],
-  KeyW: [0, -1],
-  KeyS: [0, 1],
 };
 const PAN_SPEED = 900; // px de tela por segundo
 
@@ -179,7 +179,11 @@ export function createInput(canvas, camera, state, hooks) {
         dy += v[1];
       }
     }
-    if (dx || dy) camera.panByScreen(dx * PAN_SPEED * dt, dy * PAN_SPEED * dt);
+    // `panByScreen` move o CONTEÚDO (é o que o arrasto faz): +dx empurra o mapa
+    // para a direita. As setas têm a intenção oposta — apertar → deve revelar o
+    // que está à direita, ou seja, o mapa anda para a esquerda. Daí o sinal
+    // negativo; sem ele as setas ficam invertidas.
+    if (dx || dy) camera.panByScreen(-dx * PAN_SPEED * dt, -dy * PAN_SPEED * dt);
   }
 
   return { update };

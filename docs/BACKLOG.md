@@ -56,7 +56,7 @@ Convenções de status:
 - [x] Palheta floresta: planta em terra vazia; ignora água/cinza/fogo
 - [x] Palheta água: alaga a terra, custa `2 * (1 + (dist-1) * 0.5)` do reservatório do rio
 - [x] Preview do brush (todos os tiles que a pintada atinge)
-- [x] Pan sempre disponível: botão direito/meio, shift, espaço, ferramenta mão, 2 dedos, setas/WASD; `F` enquadra o mundo
+- [x] Pan sempre disponível: botão direito/meio, shift, espaço, ferramenta mão, 2 dedos, setas; `F` enquadra o mundo
 - [x] Água no incêndio (spray) fica para M4 — depende do modelo de fogo
 - [x] Undo simples — **descartado**: recomeçar custa um clique e a partida é curta
 

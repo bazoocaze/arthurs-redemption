@@ -504,6 +504,9 @@ function applyDbgMode() {
 
 // ` cicla escondido -> chip de fps -> painel completo. Não usamos F3: no
 // Chrome/Firefox F3 é "localizar próxima".
+//
+// As teclas de debug (I, N, B, V, L) só existem com o painel ABERTO
+// (`dbgMode === 2`): o painel é a chave geral, não o `?debug=1` da URL.
 window.addEventListener('keydown', (e) => {
   // I acende fogo no tile sob o cursor (só com debug aberto; M5 traz as bombas)
   if ((e.key === 'i' || e.key === 'I') && dbgMode === 2 && state.hover) {
@@ -527,6 +530,14 @@ window.addEventListener('keydown', (e) => {
   }
   if (dbgMode === 2 && (e.key === 'l' || e.key === 'L')) {
     hooks.lose();
+    return;
+  }
+  // D alterna o painel de debug (o gate das teclas especiais).
+  if (e.key === 'd' || e.key === 'D') {
+    dbgMode = dbgMode === 2 ? 1 : 2;
+    applyDbgMode();
+    if (dbgMode !== 2) dbgEl.textContent = '';
+    dirty = true;
     return;
   }
   if ((e.key === 'b' || e.key === 'B') && dbgMode === 2 && state.hover) {

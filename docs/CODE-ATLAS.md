@@ -436,13 +436,25 @@ Recordes em `localStorage` via `save.js`.
 
 ## 9. Debug e perf
 
-Três modos, ciclados pela tecla **`` ` ``** (backtick):
+Três modos. **`D` alterna o painel** (2 ↔ 1) e **`` ` ``** (backtick) cicla os
+três; `?debug=1` começa no painel.
 
 | Modo | O que mostra |
 | --- | --- |
 | 0 | nada |
 | 1 (padrão) | chip `60 fps · 8% redraw` no canto |
-| 2 (`?debug=1` começa aqui) | painel completo |
+| 2 | painel completo (onde `?debug=1` começa) |
+
+**O painel é o gate das teclas especiais**: `I` (fogo), `N`/`B` (bombas) e
+`V`/`L` (vencer/perder) só respondem com `dbgMode === 2`. Não é o `?debug=1` da
+URL que autoriza — é o painel estar aberto. Verificado por probe: painel fechado
+`N` não lança nada; aberto, lança.
+
+**Setas movem a VISTA, não o conteúdo.** `camera.panByScreen` empurra o mapa na
+direção pedida (é o que o arrasto faz), então o teclado aplica o sinal negativo:
+sem isso, apertar → empurrava o mapa para a direita e a câmera ia para a
+esquerda — as setas ficavam invertidas. WASD foi removido porque `D` virou o
+toggle do painel.
 
 O painel (`#debug`) mostra, por linha: fps e `redraw %`, ms por camada
 (`terreno / árvores / overlay`), tiles e árvores desenhados, zoom, ferramenta,

@@ -30,7 +30,7 @@ spray e cinzas, bombardeio com voo visível e explosão, e **áudio procedural**
 | Geração determinística por seed | ✅ | `?seed=N` |
 | Rios de borda a borda, largura variável | ✅ | 1–3 rios; volume 10/tile |
 | Tons de terra em manchas suaves | ✅ | 4 tons via fbm + dither |
-| Pan: botão direito/meio, shift, espaço, ferramenta 🖐️, 2 dedos, setas/WASD | ✅ | botão esquerdo obedece a palheta |
+| Pan: botão direito/meio, shift, espaço, ferramenta 🖐️, 2 dedos, setas | ✅ | WASD removido (D abre o painel de debug) |
 | Zoom por wheel e pinça, ancorado no ponteiro | ✅ | 0.18× a 3× |
 | `F` enquadra o mundo inteiro | ✅ | |
 | Culling de tiles/árvores no viewport | ✅ | |
@@ -92,7 +92,7 @@ spray e cinzas, bombardeio com voo visível e explosão, e **áudio procedural**
 | Voo visível com arco, rastro e faísca | ✅ | 1,1–1,7 s de voo |
 | Sombra no alvo que cresce | ✅ | única dica de onde cai |
 | Impacto: clarão, anel, poeira, tremor, ignição raio 5 | ✅ | mediana 84 tiles em floresta cheia |
-| `B` solta bomba no cursor / `N` bomba sorteada (debug) | ✅ | só com `?debug=1`; `B` repete o tile do cursor |
+| `B` solta bomba no cursor / `N` bomba sorteada (debug) | ✅ | só com o painel de debug aberto (`D`); `B` repete o tile do cursor |
 
 ## Fim de jogo e pontuação
 
