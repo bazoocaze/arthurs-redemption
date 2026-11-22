@@ -755,6 +755,24 @@ check('seca só derrota com fogo ativo', () => {
   assert(r && r.phase === PHASE.DROUGHT, 'devia derrotar com fogo e sem água');
   assert(r.grade === 'F', `nota ${r.grade}`);
 });
+check('água encalhada abaixo do custo do spray também derrota', () => {
+  const g = fireGrid(24, 24);
+  fillTrees(g, 1, 1, 22, 22);
+  const game = createGame(1000);
+  // 0,7 sobra de água: `sprayTile` recusa (custo mínimo 1), então não há como
+  // apagar nada — antes disso a partida ficava presa em `playing` para sempre.
+  g.waterTotal = 0.7;
+  igniteRadius(g, 12, 12, 1, 7);
+  const r = checkEnd(game, g, 10);
+  assert(r && r.phase === PHASE.DROUGHT, 'água encalhada com fogo devia derrotar');
+  // e ainda dá para pagar um spray encostado no rio: não derrota
+  const g2 = fireGrid(24, 24);
+  fillTrees(g2, 1, 1, 22, 22);
+  const game2 = createGame(1000);
+  g2.waterTotal = 1.5;
+  igniteRadius(g2, 12, 12, 1, 7);
+  assert(checkEnd(game2, g2, 10) === null, 'com 1,5 de água ainda dá para sprayar');
+});
 check('endGame forçado (teclas de debug) funciona', () => {
   const g = fireGrid(20, 20);
   fillTrees(g, 1, 1, 18, 18);

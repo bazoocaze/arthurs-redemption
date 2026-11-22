@@ -338,6 +338,11 @@ recebe `max(salvo, agora + 8 s)` para um save feito no instante do evento não
 bombardear no primeiro frame. O botão ↺ liga `saveDescartado`, senão o
 `pagehide` regravaria o estado recém-descartado.
 
+**Água encalhada.** `sprayTile` recusa quando `waterTotal < custo`, então o
+reservatório nunca chega a zero exato: sobravam 0,7 quando tudo custava ≥ 1. A
+derrota por seca compara com `WATER.sprayCost` (o spray mais barato que existe),
+não com zero — assim "não dá mais para apagar nada" encerra a partida.
+
 Junto do save, `visibilitychange` **pausa** o jogo (`pausar`/`retomar`): o
 `frame` retorna antes de qualquer update/render, `lastTs` é zerado para o `dt` não
 contar o tempo parado e o `AudioContext` é suspenso (`audio.suspender()`), senão a

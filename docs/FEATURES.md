@@ -99,7 +99,7 @@ spray e cinzas, bombardeio com voo visível e explosão, e **áudio procedural**
 | Feature | Status | Observações |
 | --- | --- | --- |
 | Vitória ao atingir 90% de cobertura | ✅ | checada a cada frame |
-| Derrota: água zerada **e** fogo ativo | ✅ | "secou" |
+| Derrota: água insuficiente para qualquer spray **e** fogo ativo | ✅ | "secou" — o corte é `waterTotal < WATER.sprayCost` (1), não zero exato, senão sobra encalhada |
 | Sim e pintura congelam ao fim | ✅ | partícula em voo termina |
 | Tela final: nota grande, stats por ícone, mensagem | ✅ | S/A/B/C/D e F na derrota |
 | 4 frases de vitória e 3 de derrota, sorteadas | ✅ | sem repetir a da partida anterior |

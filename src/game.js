@@ -2,8 +2,8 @@
 //
 // O jogo tem três fases e duas saídas:
 //
-//   playing ──(cobertura ≥ 90%)──────────► victory
-//        └────(água zerada e fogo ativo)─► drought  (derrota satírica)
+//   playing ──(cobertura ≥ 90%)────────────────► victory
+//        └────(água insuficiente + fogo ativo)─► drought  (derrota satírica)
 //
 // Duas decisões:
 //
@@ -11,11 +11,15 @@
 //    chegar em 90% e o jogo termina naquele tile — o feedback é imediato.
 // 2. **Derrota só existe com fogo ativo.** Água zerada com a floresta intacta é
 //    só "não tem mais como apagar"; o jogo segue. Sem essa condição, acabar a
-//    água pintando lagos encerraria a partida sem drama nenhum.
+//    água encerraria a partida sem drama nenhum.
+// 3. **"Acabou a água" é não poder pagar nem o spray mais barato**, não zero
+//    exato. `sprayTile` recusa quando `waterTotal < custo`, então a água encalhava
+//    em 0,7 (abaixo do custo mínimo 1) e a derrota nunca disparava: fogo queimando
+//    a floresta toda, barra em 0% e a partida seguindo para sempre.
 //
 // A pontuação existe para diferenciar vitórias: sobreviver é o mínimo, chegar
 // rápido e sem gastar água é o que dá S.
-import { GAME } from './config.js';
+import { GAME, WATER } from './config.js';
 
 export const PHASE = { PLAYING: 'playing', VICTORY: 'victory', DROUGHT: 'drought' };
 
@@ -35,7 +39,7 @@ export function createGame(waterInitial) {
 export function checkEnd(game, grid, elapsed) {
   if (game.phase !== PHASE.PLAYING) return null;
   if (grid.coverage() >= GAME.goalCoverage) return endGame(game, grid, elapsed, PHASE.VICTORY);
-  if (grid.waterTotal <= 0.001 && grid.burningCount > 0) {
+  if (grid.burningCount > 0 && grid.waterTotal < WATER.sprayCost) {
     return endGame(game, grid, elapsed, PHASE.DROUGHT);
   }
   return null;
