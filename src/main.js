@@ -99,7 +99,7 @@ function drainEvents() {
       shake.t = BOMB.shakeSeconds;
       shake.x = (hash2(e.x, e.y, 5) - 0.5) * 2 * BOMB.shakeMag;
       shake.y = (hash2(e.y, e.x, 9) - 0.5) * 2 * BOMB.shakeMag;
-      ui.updateHud();
+      atualizarHud();
     }
   }
   ev.length = 0;
@@ -124,7 +124,7 @@ function paintPath(path) {
   drainEvents();
   if (changed) {
     dirty = true;
-    ui.updateHud();
+    atualizarHud();
   }
   return changed;
 }
@@ -175,7 +175,7 @@ const hooks = {
     const lit = igniteRadius(grid, x, y, radius, SEED);
     if (lit) {
       dirty = true;
-      ui.updateHud();
+      atualizarHud();
     }
     return lit;
   },
@@ -213,7 +213,7 @@ const hooks = {
   },
   setBrushRadius(r) {
     state.brushRadius = r;
-    ui.updateHud();
+    atualizarHud();
     dirty = true;
   },
 };
@@ -221,6 +221,32 @@ const hooks = {
 prebuildSprites();
 
 const ui = createUi(state, hooks);
+
+// HUD: o pincel chamava `ui.updateHud()` direto, mas o fogo derruba árvores
+// sozinho — e aí o % de floresta (e a pílula de focos) congelava até o jogador
+// pintar de novo. Três contadores em cache custam O(1) por frame e evitam tocar
+// o DOM à toa; o HUD só é reescrito quando algum deles muda de verdade.
+let hudTrees = -1;
+let hudBurning = -1;
+let hudWater = -1;
+
+function atualizarHud() {
+  hudTrees = grid.treeCount;
+  hudBurning = grid.burningCount;
+  hudWater = Math.round(grid.waterTotal);
+  ui.updateHud();
+}
+
+/** Chamado no frame: pega o que a simulação mudou sem passar pelo pincel. */
+function syncHud() {
+  if (
+    grid.treeCount === hudTrees &&
+    grid.burningCount === hudBurning &&
+    Math.round(grid.waterTotal) === hudWater
+  )
+    return;
+  atualizarHud();
+}
 ui.setWaterInitial(grid.waterTotal);
 ui.setMuted(audio.muted); // estado do mudo é persistido em localStorage
 
@@ -252,7 +278,7 @@ if (SAVED) {
     state.brushRadius = meta.ui.brushRadius || state.brushRadius;
     state.tool = meta.ui.tool || state.tool;
     ui.refreshTool();
-    ui.updateHud();
+    atualizarHud();
   }
 }
 
@@ -584,6 +610,7 @@ function frame(ts) {
   } else {
     drainEvents(); // deixa as partículas terminarem
   }
+  syncHud(); // fogo/cinzas mexem em árvores e água fora do pincel
 
   // Ordem: entrada renderiza na hora; animação obedece ao teto de `TIME.animHz`.
   let redrawn = dirty || inputFrame();

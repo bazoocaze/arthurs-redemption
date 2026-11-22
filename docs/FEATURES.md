@@ -150,6 +150,7 @@ spray e cinzas, bombardeio com voo visível e explosão, e **áudio procedural**
 | Barra de cobertura de floresta com marcador em 90% | ✅ | meta de vitória |
 | Barra de água restante (vermelha quando seca) | ✅ | proporção do reservatório inicial |
 | Tamanho do brush | ✅ | número no botão da palheta |
+| HUD acompanha o fogo sem pintar | ✅ | `syncHud()` compara árvores/focos/água a cada frame; antes o % e a pílula 🔥 só andavam quando o jogador pintava |
 
 ## Métrica de redraw
 
